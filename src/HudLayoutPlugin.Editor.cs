@@ -16,7 +16,7 @@ namespace HudLayout
         private bool _editing;
         internal bool Editing { get { return _editing; } }
 
-        private ElementId _sel = ElementId.Health;
+        private ElementSettings _sel;       // the selected element (null = the first one)
 
         private enum DragKind { None, Move, Scale, Edge, ResizeWindow }
         private DragKind _drag;
@@ -39,6 +39,9 @@ namespace HudLayout
         private bool _savedSaveOnSet = true;
 
         private GUIStyle _labelStyle, _shadowStyle, _headerStyle, _hintStyle, _smallButton, _wrapLabel, _wrapToggle;
+        private GUIStyle _windowStyle;
+        private Texture2D _windowBg;
+        private float _windowBgAlpha = -1f;
 
         private const int WindowId = 0x4A1D7;
 
@@ -61,7 +64,7 @@ namespace HudLayout
             _drag = DragKind.None;
             _savedSaveOnSet = Config.SaveOnConfigSet;
             Config.SaveOnConfigSet = false;
-            Select(_sel);
+            Select(_sel ?? Get(ElementId.Health));
             return null;
         }
 
@@ -89,12 +92,20 @@ namespace HudLayout
             _msgUntil = Time.unscaledTime + 6f;
         }
 
-        private void Select(ElementId id)
+        private void Select(ElementSettings s)
         {
-            _sel = id;
-            ElementSettings s = Get(id);
+            _sel = s;
             _colorBuf = s.BarColor != null ? s.BarColor.Value : "";
             GUIUtility.keyboardControl = 0;
+        }
+
+        internal static string ElementLabel(ElementSettings s)
+        {
+            if (s.Id == ElementId.Other)
+                return s.Key.StartsWith("Mod.", StringComparison.Ordinal) || s.Key.StartsWith("Api.", StringComparison.Ordinal)
+                    ? L("Mod: ", "Мод: ") + L(s.LabelEn, s.LabelRu ?? s.LabelEn)
+                    : L(s.LabelEn, s.LabelRu ?? s.LabelEn);
+            return ElementLabel(s.Id);
         }
 
         internal static string ElementLabel(ElementId id)
@@ -124,7 +135,7 @@ namespace HudLayout
 
         private Vector2 ToScreen(HudElement e, Vector2 wrapperPoint)
         {
-            return RectTransformUtility.WorldToScreenPoint(UiCamera, e.Wrapper.TransformPoint(wrapperPoint));
+            return RectTransformUtility.WorldToScreenPoint(UiCamera, e.ToWorld(wrapperPoint));
         }
 
         private static Vector2 GuiToScreen(Vector2 g) { return new Vector2(g.x, Screen.height - g.y); }
@@ -302,7 +313,7 @@ namespace HudLayout
                 Matrix4x4 old = GUI.matrix;
                 GUI.matrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(k, k, 1f));
                 _win = GUILayout.Window(WindowId, new Rect(_win.x, _win.y, _winW, _winH), DrawWindow,
-                    L("HudLayout — edit mode", "HudLayout — редактор HUD"),
+                    L("HudLayout — edit mode", "HudLayout — редактор HUD"), WindowStyle(),
                     GUILayout.Width(_winW), GUILayout.Height(_winH));
                 // the whole window stays on the screen
                 _win.width = _winW; _win.height = _winH;
@@ -358,6 +369,39 @@ namespace HudLayout
             _wrapToggle.wordWrap = true;
         }
 
+        // The skin's window is see-through; ours is a dark panel of EditorOpacity, so the game
+        // behind does not make the text hard to read. Kept in step with the setting.
+        private GUIStyle WindowStyle()
+        {
+            float a = _cfgEditorOpacity.Value;
+            if (_windowStyle != null && _windowBg != null && Mathf.Approximately(a, _windowBgAlpha)) return _windowStyle;
+            if (_windowBg == null)
+            {
+                _windowBg = new Texture2D(1, 1, TextureFormat.RGBA32, false);
+                _windowBg.hideFlags = HideFlags.HideAndDontSave;
+            }
+            _windowBg.SetPixel(0, 0, new Color(0.08f, 0.07f, 0.06f, a));
+            _windowBg.Apply();
+            _windowBgAlpha = a;
+            if (_windowStyle == null)
+            {
+                _windowStyle = new GUIStyle(GUI.skin.window);
+                _windowStyle.normal.textColor = new Color(1f, 0.85f, 0.45f);
+                _windowStyle.onNormal.textColor = _windowStyle.normal.textColor;
+                _windowStyle.fontStyle = FontStyle.Bold;
+            }
+            _windowStyle.normal.background = _windowBg;
+            _windowStyle.onNormal.background = _windowBg;
+            _windowStyle.focused.background = _windowBg;
+            _windowStyle.onFocused.background = _windowBg;
+            _windowStyle.hover.background = _windowBg;
+            _windowStyle.onHover.background = _windowBg;
+            _windowStyle.active.background = _windowBg;
+            _windowStyle.onActive.background = _windowBg;
+            _windowStyle.border = new RectOffset(0, 0, 0, 0);
+            return _windowStyle;
+        }
+
         private static void Fill(Rect r, Color c)
         {
             Color old = GUI.color;
@@ -387,12 +431,12 @@ namespace HudLayout
             Color other = new Color(1f, 1f, 1f, 0.6f);
             foreach (HudElement e in _hudElements)
             {
-                bool isSel = e.Settings.Id == _sel;
+                bool isSel = e.Settings == _sel;
                 Rect r = GuiRect(e);
                 Color c = isSel ? sel : other;
                 Fill(r, new Color(c.r, c.g, c.b, isSel ? 0.14f : 0.06f));
                 Outline(r, c, isSel ? 2f : 1f);
-                string label = ElementLabel(e.Settings.Id);
+                string label = ElementLabel(e.Settings);
                 if (e.Settings.Vis.Value == Visibility.Hidden) label += L(" (hidden)", " (скрыт)");
                 Shadowed(new Rect(r.xMin, r.yMin - 22f, 260f, 22f), label);
                 if (!isSel) continue;
@@ -406,8 +450,8 @@ namespace HudLayout
             // the middle of the screen while something sits on it
             if (_drag == DragKind.Move)
             {
-                ElementSettings s = Get(_sel);
-                if (s.HasPosition && Mathf.Abs(s.PosX.Value - 0.5f) < 0.0001f)
+                ElementSettings s = _sel;
+                if (s != null && s.HasPosition && Mathf.Abs(s.PosX.Value - 0.5f) < 0.0001f)
                     Fill(new Rect(Screen.width * 0.5f - 0.5f, 0f, 1f, Screen.height), new Color(0.3f, 0.9f, 1f, 0.6f));
             }
         }
@@ -460,7 +504,7 @@ namespace HudLayout
                         hit = HitTest(gui);
                         if (hit != null)
                         {
-                            Select(hit.Settings.Id);
+                            Select(hit.Settings);
                             _drag = DragKind.Move;
                             _grab = PivotScreen(hit) - GuiToScreen(gui);
                             ev.Use();
@@ -471,7 +515,7 @@ namespace HudLayout
                     {
                         hit = HitTest(gui);
                         if (hit == null) return;
-                        Select(hit.Settings.Id);
+                        Select(hit.Settings);
                         if (ev.shift) ResetLayout(hit.Settings);
                         else ResetPosition(hit.Settings);
                         ev.Use();
@@ -519,7 +563,7 @@ namespace HudLayout
                     if (overWin) return;
                     hit = HitTest(gui);
                     if (hit == null) return;
-                    Select(hit.Settings.Id);
+                    Select(hit.Settings);
                     float step = ev.delta.y > 0f ? -0.05f : 0.05f;
                     ConfigEntry<float> target = hit.Settings.Scale;
                     if (ev.control && hit.Settings.Length != null) target = hit.Settings.Length;
@@ -543,7 +587,7 @@ namespace HudLayout
                         int n = _hudElements.Count;
                         if (n == 0) return;
                         int i = cur2 != null ? _hudElements.IndexOf(cur2) : -1;
-                        Select(_hudElements[((i + (ev.shift ? -1 : 1)) % n + n) % n].Settings.Id);
+                        Select(_hudElements[((i + (ev.shift ? -1 : 1)) % n + n) % n].Settings);
                         ev.Use();
                         return;
                     }
@@ -582,16 +626,16 @@ namespace HudLayout
             int selIndex = 0;
             for (int i = 0; i < _hudElements.Count; i++)
             {
-                names[i] = ElementLabel(_hudElements[i].Settings.Id);
-                if (_hudElements[i].Settings.Id == _sel) selIndex = i;
+                names[i] = ElementLabel(_hudElements[i].Settings);
+                if (_hudElements[i].Settings == _sel) selIndex = i;
             }
             if (names.Length > 0)
             {
                 int ni = GUILayout.SelectionGrid(selIndex, names, 3);
-                if (ni != selIndex) Select(_hudElements[ni].Settings.Id);
+                if (ni != selIndex) Select(_hudElements[ni].Settings);
             }
 
-            ElementSettings s = Get(_sel);
+            ElementSettings s = _sel ?? Get(ElementId.Health);
             DrawLayoutSection(s);
             DrawStyleSection(s);
             DrawPresetSection();
@@ -658,6 +702,7 @@ namespace HudLayout
                 if (fixedLen != s.FixedLength.Value) s.FixedLength.Value = fixedLen;
             }
 
+            if (s.Orient != null)
             Choice(L("Orientation", "Ориентация"), s.Orient,
                 new[] { Orientation.Default, Orientation.Horizontal, Orientation.Vertical },
                 s.IsBar ? new[] { L("As in game", "Как в игре"), L("Horizontal", "Горизонтально"), L("Vertical", "Вертикально") }
@@ -676,17 +721,20 @@ namespace HudLayout
         {
             Header(L("Look", "Внешний вид"));
 
-            List<StyleDef> styles = StylesOf(s);
-            string[] labels = new string[styles.Count];
-            int cur = -1;
-            for (int i = 0; i < styles.Count; i++)
+            if (s.Style != null)
             {
-                labels[i] = L(styles[i].Name, styles[i].NameRu);
-                if (styles[i].Name == s.Style.Value) cur = i;
+                List<StyleDef> styles = StylesOf(s);
+                string[] labels = new string[styles.Count];
+                int cur = -1;
+                for (int i = 0; i < styles.Count; i++)
+                {
+                    labels[i] = L(styles[i].Name, styles[i].NameRu);
+                    if (styles[i].Name == s.Style.Value) cur = i;
+                }
+                GUILayout.Label(L("Style: ", "Стиль: ") + StyleLabel(s, s.Style.Value));
+                int n = GUILayout.SelectionGrid(cur, labels, 3);
+                if (n != cur && n >= 0) ApplyStyle(s, styles[n].Name);
             }
-            GUILayout.Label(L("Style: ", "Стиль: ") + StyleLabel(s, s.Style.Value));
-            int n = GUILayout.SelectionGrid(cur, labels, 3);
-            if (n != cur && n >= 0) ApplyStyle(s, styles[n].Name);
 
             if (s.IsBar)
                 Choice(L("Visibility", "Видимость"), s.Vis,
@@ -756,14 +804,18 @@ namespace HudLayout
                 }
                 GUILayout.EndHorizontal();
             }
-            else
+            else if (s.Timers != null)
             {
                 bool t = GUILayout.Toggle(s.Timers.Value, L(" Time left on the icons", " Оставшееся время на значках"), _wrapToggle);
                 if (t != s.Timers.Value) s.Timers.Value = t;
                 Slider(L("Time size", "Размер времени"), s.TextSize, 0.5f, 3f);
             }
 
-            if (GUILayout.Button(L("Reset look", "Сбросить внешний вид"))) ApplyStyle(s, "Vanilla");
+            if (GUILayout.Button(L("Reset look", "Сбросить внешний вид")))
+            {
+                if (s.Style != null) ApplyStyle(s, "Vanilla");
+                else Batch(delegate { foreach (ConfigEntryBase e in s.StyleEntries) e.BoxedValue = e.DefaultValue; });
+            }
         }
 
         private void DrawPresetSection()
@@ -836,6 +888,11 @@ namespace HudLayout
             if (snap != _cfgSnap.Value) _cfgSnap.Value = snap;
             bool lift = GUILayout.Toggle(_cfgBuildShift.Value, L(" Lift bars in build mode like the game", " Поднимать полосы в режиме строительства, как игра"), _wrapToggle);
             if (lift != _cfgBuildShift.Value) _cfgBuildShift.Value = lift;
+            GUILayout.BeginHorizontal();
+            GUILayout.Label(L("Window background", "Фон окна"), GUILayout.Width(110f));
+            float wo = GUILayout.HorizontalSlider(_cfgEditorOpacity.Value, 0.3f, 1f);
+            GUILayout.EndHorizontal();
+            if (Mathf.Abs(wo - _cfgEditorOpacity.Value) > 0.0001f) _cfgEditorOpacity.Value = (float)Math.Round(wo, 2);
         }
     }
 

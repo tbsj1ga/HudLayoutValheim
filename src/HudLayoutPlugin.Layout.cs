@@ -20,6 +20,40 @@ namespace HudLayout
         public Vector2 PanelBase;           // its anchoredPosition as authored (not in build mode)
 
         public readonly List<RectTransform> Bounds = new List<RectTransform>();    // what the element looks like
+        public RectTransform Target;        // simple elements: the wrapped object
+        public bool AutoBounds;             // simple elements: measured from the graphics inside
+        public readonly List<Graphic> Graphics = new List<Graphic>();
+        public float GraphicsAt;
+
+        // Direct: no wrapper, the object stays where it is in the hierarchy (someone may look it
+        // up by path, as ExtraSlots does with HotKeyBar) and our transform is composed onto its
+        // own pose. A pose written by anyone else becomes the new base.
+        public bool Direct;
+        public Vector3 BaseLp, BaseScale = Vector3.one;
+        public Quaternion BaseRot = Quaternion.identity;
+        public Vector3 WrittenLp, WrittenScale;
+        public Quaternion WrittenRot;
+        public bool HasWritten;
+        public Vector3 MPos;                // our transform: parent-space point = MPos + MRot * (x * MScale)
+        public Quaternion MRot = Quaternion.identity;
+        public float MScale = 1f;
+
+        // A point of the element's layout space (the wrapper's, or for Direct the parent's with
+        // the object at its base pose) to the world, and back.
+        public Vector3 ToWorld(Vector2 p)
+        {
+            if (!Direct) return Wrapper.TransformPoint(p);
+            Transform parent = Target.parent;
+            Vector3 q = MPos + MRot * ((Vector3)p * MScale);
+            return parent != null ? parent.TransformPoint(q) : q;
+        }
+
+        public Vector2 ToLayout(Vector3 world)
+        {
+            if (!Direct) return Wrapper.InverseTransformPoint(world);
+            Vector3 l = Target.InverseTransformPoint(world);
+            return BaseLp + BaseRot * Vector3.Scale(BaseScale, l);
+        }
         public readonly List<Transform> Upright = new List<Transform>();          // counter-rotated: numbers, icons
         public readonly List<Quaternion> UprightBase = new List<Quaternion>();
 
@@ -114,6 +148,8 @@ namespace HudLayout
             TryAttach("stamina", delegate { AttachBar(hud, ElementId.Stamina, hud.m_staminaBar2Root, hud.m_staminaBar2Fast, hud.m_staminaBar2Slow, hud.m_staminaText, hud.m_staminaAnimator); });
             TryAttach("eitr", delegate { AttachBar(hud, ElementId.Eitr, hud.m_eitrBarRoot, hud.m_eitrBarFast, hud.m_eitrBarSlow, hud.m_eitrText, hud.m_eitrAnimator); });
             TryAttach("adrenaline", delegate { AttachBar(hud, ElementId.Adrenaline, hud.m_adrenalineBarRoot, hud.m_adrenalineBarFast, hud.m_adrenalineBarSlow, hud.m_adrenalineText, hud.m_adrenalineAnimator); });
+            AttachVanillaSimple();
+            _nextScan = 0f;
             Logger.LogInfo("HUD found: " + _hudElements.Count + " of 5 elements wrapped.");
         }
 
@@ -127,18 +163,25 @@ namespace HudLayout
         // point has the same coordinates in it as in hudroot.
         private RectTransform MakeWrapper(string name, int siblingIndex)
         {
+            return MakeWrapper(name, _root, siblingIndex);
+        }
+
+        // Over the whole of parent, with parent's pivot: at rest a point has the same
+        // coordinates in the wrapper as in the parent.
+        private RectTransform MakeWrapper(string name, RectTransform parent, int siblingIndex)
+        {
             GameObject go = new GameObject(name, typeof(RectTransform));
-            go.layer = _root.gameObject.layer;
+            go.layer = parent.gameObject.layer;
             RectTransform rt = (RectTransform)go.transform;
-            rt.SetParent(_root, false);
+            rt.SetParent(parent, false);
             rt.anchorMin = Vector2.zero;
             rt.anchorMax = Vector2.one;
-            rt.pivot = _root.pivot;
+            rt.pivot = parent.pivot;
             rt.anchoredPosition = Vector2.zero;
             rt.sizeDelta = Vector2.zero;
             rt.localRotation = Quaternion.identity;
             rt.localScale = Vector3.one;
-            rt.SetSiblingIndex(Mathf.Clamp(siblingIndex, 0, _root.childCount - 1));
+            rt.SetSiblingIndex(Mathf.Clamp(siblingIndex, 0, parent.childCount - 1));
             return rt;
         }
 
@@ -435,6 +478,8 @@ namespace HudLayout
             {
                 if (hud != _hud) Attach(hud);
                 if (_root == null) return;
+                DropDead();
+                ScanLate();
                 bool on = Active;
                 Player p = Player.m_localPlayer;
                 foreach (HudElement e in _hudElements) ApplyElement(e, on, p);
@@ -506,6 +551,7 @@ namespace HudLayout
         private void ApplyText(HudElement e, bool on, Player p)
         {
             ElementSettings s = e.Settings;
+            if (s.TextSize == null) return;
             float scale = on ? s.TextSize.Value : 1f;
             TextMode mode = on && s.Text != null ? s.Text.Value : TextMode.Vanilla;
             if (!Mathf.Approximately(scale, e.TextScale) || mode != e.LastMode)
@@ -607,6 +653,7 @@ namespace HudLayout
         // Rotation of the wrapper for the configured orientation, in degrees.
         private static float AngleFor(ElementSettings s)
         {
+            if (s.Orient == null) return 0f;
             Orientation o = s.Orient.Value;
             if (o == Orientation.Default) return 0f;
             bool wantVertical = o == Orientation.Vertical;
@@ -618,22 +665,40 @@ namespace HudLayout
         private void ApplyTransform(HudElement e, bool on)
         {
             ElementSettings s = e.Settings;
+            if (e.Direct)
+            {
+                if (e.Target == null) return;
+                // someone else set the pose (or it is the first frame): that is the new base
+                Transform tt = e.Target;
+                if (!e.HasWritten || tt.localPosition != e.WrittenLp || tt.localScale != e.WrittenScale || tt.localRotation != e.WrittenRot)
+                {
+                    e.BaseLp = tt.localPosition; e.BaseScale = tt.localScale; e.BaseRot = tt.localRotation;
+                }
+            }
 
             // what the element covers, in wrapper space (the same as the game's layout, since
             // everything we do happens on the wrapper itself)
             Vector2 min = new Vector2(float.MaxValue, float.MaxValue), max = new Vector2(float.MinValue, float.MinValue);
             Vector3[] corners = _corners;
+            if (e.AutoBounds)
+            {
+                // what is drawn now; everything it could draw if nothing is (so it can be found)
+                if (Time.unscaledTime - e.GraphicsAt > 2f) RefreshGraphics(e);
+                bool any = false;
+                for (int pass = 0; pass < 2 && !any; pass++)
+                    foreach (Graphic g in e.Graphics)
+                    {
+                        if (g == null || (pass == 0 && !g.isActiveAndEnabled)) continue;
+                        AddCorners(e, g.rectTransform, ref min, ref max);
+                        any = true;
+                    }
+                if (!any && e.Target != null) AddCorners(e, e.Target, ref min, ref max);
+            }
             foreach (RectTransform rt in e.Bounds)
             {
                 if (rt == null) continue;
                 if (e.IconHidden && rt.gameObject == e.Icon) continue;   // a hidden icon takes no room
-                rt.GetWorldCorners(corners);
-                for (int i = 0; i < 4; i++)
-                {
-                    Vector3 l = e.Wrapper.InverseTransformPoint(corners[i]);
-                    min = Vector2.Min(min, l);
-                    max = Vector2.Max(max, l);
-                }
+                AddCorners(e, rt, ref min, ref max);
             }
             if (min.x > max.x) { min = max = Vector2.zero; }
             e.BMin = min; e.BMax = max;
@@ -662,11 +727,30 @@ namespace HudLayout
                 Rect r = _root.rect;
                 target = new Vector2(r.xMin + s.PosX.Value * r.width, r.yMin + s.PosY.Value * r.height);
                 if (_cfgBuildShift.Value) target += e.Shift;
+                // positions are fractions of hudroot; the wrapper may sit in another parent
+                Transform parent = e.Direct ? e.Target.parent : e.Wrapper.parent;
+                if (parent == null) target = _root.TransformPoint(target);   // a root object: its local space is the world
+                else if (parent != _root) target = parent.InverseTransformPoint(_root.TransformPoint(target));
             }
 
             Quaternion rot = Quaternion.Euler(0f, 0f, angle);
             Vector2 rc = rot * (c * scale);
             Vector3 pos = new Vector3(target.x - rc.x, target.y - rc.y, 0f);
+            e.MPos = pos; e.MRot = rot; e.MScale = scale;
+            if (e.Direct)
+            {
+                Transform tt = e.Target;
+                Vector3 lp = pos + rot * (e.BaseLp * scale);
+                lp.z = e.BaseLp.z;
+                Vector3 ls = new Vector3(e.BaseScale.x * scale, e.BaseScale.y * scale, e.BaseScale.z);
+                Quaternion lr = rot * e.BaseRot;
+                if (tt.localPosition != lp) tt.localPosition = lp;
+                if (tt.localScale != ls) tt.localScale = ls;
+                if (tt.localRotation != lr) tt.localRotation = lr;
+                e.WrittenLp = tt.localPosition; e.WrittenScale = tt.localScale; e.WrittenRot = tt.localRotation;
+                e.HasWritten = true;
+                return;
+            }
             if (e.Wrapper.localPosition != pos) e.Wrapper.localPosition = pos;
             if (e.Wrapper.localRotation != rot) e.Wrapper.localRotation = rot;
             Vector3 sc = new Vector3(scale, scale, 1f);
@@ -682,6 +766,17 @@ namespace HudLayout
         }
 
         private readonly Vector3[] _corners = new Vector3[4];
+
+        private void AddCorners(HudElement e, RectTransform rt, ref Vector2 min, ref Vector2 max)
+        {
+            rt.GetWorldCorners(_corners);
+            for (int i = 0; i < 4; i++)
+            {
+                Vector2 l = e.ToLayout(_corners[i]);
+                min = Vector2.Min(min, l);
+                max = Vector2.Max(max, l);
+            }
+        }
 
         // The width Hud.Set*BarSize gets: the game's (grows with the maximum, 32 px per 25
         // points) times Length, or with FixedLength a constant base times Length.

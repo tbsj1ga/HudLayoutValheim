@@ -4,6 +4,26 @@
 
 The version is set in one place — `HudLayoutPlugin.Version` in `src/HudLayoutPlugin.cs`.
 
+## 0.10.0
+
+- **The rest of the HUD is movable too**, as simple elements (position, scale, visibility,
+  opacity; in the editor, presets and the config like the bars): hotbar, Forsaken power,
+  status effects, minimap, raid bar, action progress, stagger bar, mount panel, ship
+  controls, key hints, centre and top left messages, save and bad connection icons.
+  Sections `10 HotKeyBar` … `23 BadConnection`.
+- **Other mods' HUD elements**: anything another mod puts into `hudroot` (e.g. ExtraSlots'
+  quick, ammo and food hotbars) is found every two seconds and becomes movable, with a
+  section `30 Mod <name>`. `ModElements` turns this off, `IgnoreModElements` skips names.
+- Elements other code may look up by path — the vanilla hotbar (ExtraSlots copies it via
+  `hudroot.Find("HotKeyBar")`) and all other mods' elements — are not wrapped but moved in
+  place: our offset, scale and rotation go on top of their own pose, and a pose their owner
+  writes becomes the new base.
+- A preset applied before another mod's element appeared still applies to it when it does.
+
+## 0.9.5
+
+- The edit mode window has a solid dark background (`EditorOpacity`, 0.95 by default; also a slider in the window).
+
 ## 0.9.4
 
 - **Cells use the game's own pattern.** The fill is a tiled 32 px image with a dark edge,

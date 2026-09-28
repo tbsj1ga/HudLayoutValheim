@@ -7,7 +7,8 @@ using UnityEngine;
 
 namespace HudLayout
 {
-    public enum ElementId { Health, Stamina, Eitr, Adrenaline, Food }
+    // Other: a simple element (the rest of the vanilla HUD, other mods' elements), told apart by Key.
+    public enum ElementId { Health, Stamina, Eitr, Adrenaline, Food, Other }
 
     // Default: as the game draws it (health and food vertical, the other bars horizontal).
     public enum Orientation { Default, Horizontal, Vertical }
@@ -36,6 +37,8 @@ namespace HudLayout
         public string Section;      // "01 Health", ...
         public bool IsBar;
         public bool NativeVertical; // how the game draws it
+        public bool IsSimple;       // position, scale, visibility and opacity only
+        public string LabelEn, LabelRu;
 
         public ConfigEntry<float> PosX, PosY, Scale, Length, Thickness, Opacity, TextSize;
         public ConfigEntry<bool> FixedLength, Icon, Segments;
@@ -76,10 +79,27 @@ namespace HudLayout
         private ConfigEntry<bool> _cfgSnap;
         private ConfigEntry<float> _cfgGrid;
         private ConfigEntry<bool> _cfgBuildShift;
+        private ConfigEntry<float> _cfgEditorOpacity;
         private ConfigEntry<string> _cfgLastPreset;
         private static ConfigEntry<string> _cfgLanguage;
 
         internal readonly ElementSettings[] Elements = new ElementSettings[5];
+        // The simple elements: the rest of the vanilla HUD (bound at start) and other mods'
+        // elements (bound when first found).
+        internal readonly List<ElementSettings> Extra = new List<ElementSettings>();
+
+        internal IEnumerable<ElementSettings> AllSettings()
+        {
+            foreach (ElementSettings s in Elements) if (s != null) yield return s;
+            foreach (ElementSettings s in Extra) yield return s;
+        }
+
+        internal ElementSettings FindSettings(string key)
+        {
+            foreach (ElementSettings s in AllSettings())
+                if (string.Equals(s.Key, key, StringComparison.OrdinalIgnoreCase)) return s;
+            return null;
+        }
 
         private const string CustomStyle = "Custom";
 
@@ -110,6 +130,8 @@ namespace HudLayout
                 new ConfigDescription("Grid step, as a fraction of the screen.", new AcceptableValueRange<float>(0.001f, 0.05f)));
             _cfgBuildShift = Config.Bind(g, "FollowBuildShift", true,
                 "In build mode and at a ship's helm the game lifts the stamina, eitr and adrenaline bars so the build panel does not cover them. On = moved bars get lifted by the same amount.");
+            _cfgEditorOpacity = Config.Bind(g, "EditorOpacity", 0.95f,
+                new ConfigDescription("Opacity of the edit mode window's background.", new AcceptableValueRange<float>(0.3f, 1f)));
             _cfgLastPreset = Config.Bind(g, "LastPreset", "",
                 "The preset applied last (for information; applying one again is done in edit mode or with 'hudlayout apply').");
             _cfgLanguage = Config.Bind(g, "Language", "Auto",
@@ -122,6 +144,7 @@ namespace HudLayout
             Elements[4] = BindElement(ElementId.Food, "05 Food", "Food", false, true, BarAnchor.Center);
 
             foreach (ElementSettings s in Elements) ParseColor(s);
+            BindVanillaSimple();
             Config.SettingChanged += OnSettingChanged;
         }
 
@@ -211,9 +234,8 @@ namespace HudLayout
         private ElementSettings OwnerOf(ConfigEntryBase entry, out bool isStyleEntry)
         {
             isStyleEntry = false;
-            foreach (ElementSettings s in Elements)
+            foreach (ElementSettings s in AllSettings())
             {
-                if (s == null) continue;
                 if (s.LayoutEntries.Contains(entry)) return s;
                 if (s.StyleEntries.Contains(entry)) { isStyleEntry = true; return s; }
             }

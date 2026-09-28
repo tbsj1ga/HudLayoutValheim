@@ -61,7 +61,7 @@ namespace HudLayout
             Preset p = new Preset();
             p.Name = name; p.NameRu = ru; p.BuiltIn = true;
             // start from the defaults, so a built-in preset always describes every option
-            foreach (ElementSettings s in Elements)
+            foreach (ElementSettings s in AllSettings())
                 foreach (ConfigEntryBase e in s.AllEntries())
                     p.Values[s.Key + "." + e.Definition.Key] = DefaultText(e);
             _builtIn.Add(p);
@@ -147,7 +147,7 @@ namespace HudLayout
         {
             Preset p = new Preset();
             p.Name = name;
-            foreach (ElementSettings s in Elements)
+            foreach (ElementSettings s in AllSettings())
                 foreach (ConfigEntryBase e in s.AllEntries())
                     p.Values[s.Key + "." + e.Definition.Key] = e.GetSerializedValue();
             return p;
@@ -155,9 +155,12 @@ namespace HudLayout
 
         internal void ApplyPreset(Preset p, PresetPart part)
         {
+            // other mods' elements that show up later get their values from it too
+            _pendingPreset = p;
+            _pendingPart = part;
             Batch(delegate
             {
-                foreach (ElementSettings s in Elements)
+                foreach (ElementSettings s in AllSettings())
                 {
                     if (part != PresetPart.Style) ApplyEntries(p, s, s.LayoutEntries);
                     if (part != PresetPart.Layout)
@@ -170,7 +173,7 @@ namespace HudLayout
             });
             // a preset from an older version may lack Style or carry a stale one
             if (part != PresetPart.Layout)
-                foreach (ElementSettings s in Elements) DetectStyle(s);
+                foreach (ElementSettings s in AllSettings()) DetectStyle(s);
         }
 
         // An option the preset does not mention goes back to its default: a preset always

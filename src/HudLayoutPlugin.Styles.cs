@@ -97,6 +97,7 @@ namespace HudLayout
 
         internal string StyleLabel(ElementSettings s, string name)
         {
+            if (s.Style == null) return "";
             if (name == CustomStyle) return L("Custom", "Своё");
             foreach (StyleDef d in StylesOf(s))
                 if (d.Name == name) return L(d.Name, d.NameRu);
@@ -107,7 +108,7 @@ namespace HudLayout
         // name from the editor or a command).
         internal void ApplyStyle(ElementSettings s, string name)
         {
-            if (name == CustomStyle) return;
+            if (name == CustomStyle || s.Style == null) return;
             StyleDef def = null;
             foreach (StyleDef d in StylesOf(s)) if (d.Name == name) def = d;
             if (def == null) return;
@@ -126,6 +127,7 @@ namespace HudLayout
         // Sets Style to the style whose options all match the current ones, or Custom.
         internal void DetectStyle(ElementSettings s)
         {
+            if (s.Style == null) return;
             string found = CustomStyle;
             foreach (StyleDef d in StylesOf(s))
             {
