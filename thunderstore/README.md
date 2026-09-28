@@ -12,7 +12,7 @@ and the food icons. Client-side only: other players and the server need nothing.
 - **Styles** for every element: Vanilla, Minimal, Numeric, Percent, Faded, Contrast for the
   bars; Vanilla, IconsOnly, LargeTimers, Faded for the food.
 - **Presets** of the whole HUD: Vanilla, Centered, CenteredMinimal, BottomLeft, Minimal,
-  Numbers — applied whole, layout only or look only. Save your own, delete them, share one as
+  Numbers, AuthorsChoice — applied whole, layout only or look only. Save your own, delete them, share one as
   a single line through the clipboard and import a friend's.
 - English and Russian; everything is in `j1ga.hudlayout.cfg` and ConfigurationManager too.
 

@@ -33,7 +33,7 @@ namespace HudLayout
     {
         public const string Guid = "j1ga.hudlayout";
         public const string Name = "HudLayout";
-        public const string Version = "0.11.2";
+        public const string Version = "0.12.0";
 
         // Harmony patches are static; they reach the running plugin through this.
         public static HudLayoutPlugin Instance;

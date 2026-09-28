@@ -25,7 +25,7 @@ yet. History: [CHANGELOG.md](CHANGELOG.md), plan: [ROADMAP.md](ROADMAP.md).
   Minimal, Numeric, Percent, Faded, Contrast*; food has *Vanilla, IconsOnly, LargeTimers,
   Faded*. Picking one fills in the options; changing any option by hand makes it *Custom*.
 - **Presets** describe the whole HUD (all five elements, layout and look). Built-in:
-  *Vanilla, Centered, CenteredMinimal, BottomLeft, Minimal, Numbers*. A preset can be applied
+  *Vanilla, Centered, CenteredMinimal, BottomLeft, Minimal, Numbers, AuthorsChoice*. A preset can be applied
   whole, only its layout (positions and sizes) or only its look.
 - **Your own presets**: save the current HUD under a name, delete, copy to the clipboard as
   one line and import one from a friend. They are text files in

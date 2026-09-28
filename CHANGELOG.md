@@ -4,6 +4,14 @@
 
 The version is set in one place — `HudLayoutPlugin.Version` in `src/HudLayoutPlugin.cs`.
 
+## 0.12.0
+
+- New built-in preset **AuthorsChoice**: every bar horizontal in the bottom centre with a
+  fixed length, cells of 10 and cur/max numbers, shown only when not full; the adrenaline bar
+  small and vertical beside the crosshair; food in a row under the bars; places for the
+  Forsaken power, stagger, mount, ship and save icons, and for the compass, WeaponArts and
+  ExtraSlots' hotbars (applied only when those mods are installed).
+
 ## 0.11.2
 
 - Editor window folds to its title bar (the – / + button, or H) to see and drag the HUD under it; still draggable when folded.

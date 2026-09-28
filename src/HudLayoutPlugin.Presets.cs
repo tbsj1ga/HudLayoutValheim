@@ -109,6 +109,85 @@ namespace HudLayout
             Place(p, ElementId.Adrenaline, 0.5f, 0.085f, Orientation.Horizontal, BarAnchor.Center);
         }
 
+        // The author's own layout: every bar horizontal in the bottom centre with a fixed
+        // length, cells of 10, "cur/max" numbers, shown only when not full; food in a row
+        // under them; plus places for the compass, WeaponArts and ExtraSlots' hotbars (used
+        // only when those mods are there). Only what differs from the defaults.
+        private const string AuthorsChoiceText =
+            "Health.PositionX = 0.5\n" +
+            "Health.PositionY = 0.11\n" +
+            "Health.Orientation = Horizontal\n" +
+            "Health.Anchor = Center\n" +
+            "Health.Length = 2\n" +
+            "Health.Thickness = 0.9\n" +
+            "Health.FixedLength = true\n" +
+            "Health.Style = Custom\n" +
+            "Health.Visibility = NotFull\n" +
+            "Health.Text = CurrentMax\n" +
+            "Health.TextSize = 1.3\n" +
+            "Health.TextPosition = Center\n" +
+            "Health.Segments = true\n" +
+            "Health.Icon = false\n" +
+            "Stamina.PositionX = 0.5\n" +
+            "Stamina.PositionY = 0.925\n" +
+            "Stamina.Orientation = Horizontal\n" +
+            "Stamina.Length = 2.5\n" +
+            "Stamina.FixedLength = true\n" +
+            "Stamina.Style = Custom\n" +
+            "Stamina.Visibility = NotFull\n" +
+            "Stamina.Text = CurrentMax\n" +
+            "Stamina.TextSize = 1.37\n" +
+            "Stamina.TextPosition = Center\n" +
+            "Stamina.Segments = true\n" +
+            "Eitr.PositionX = 0.5\n" +
+            "Eitr.PositionY = 0.08\n" +
+            "Eitr.Length = 2.45\n" +
+            "Eitr.Thickness = 1.6\n" +
+            "Eitr.FixedLength = true\n" +
+            "Eitr.Style = Custom\n" +
+            "Eitr.Visibility = NotFull\n" +
+            "Eitr.Text = CurrentMax\n" +
+            "Eitr.TextSize = 1.11\n" +
+            "Eitr.TextPosition = Center\n" +
+            "Eitr.Segments = true\n" +
+            "Adrenaline.PositionX = 0.565\n" +
+            "Adrenaline.PositionY = 0.5\n" +
+            "Adrenaline.Orientation = Vertical\n" +
+            "Adrenaline.Length = 0.75\n" +
+            "Adrenaline.Thickness = 0.45\n" +
+            "Adrenaline.FixedLength = true\n" +
+            "Adrenaline.Style = Custom\n" +
+            "Adrenaline.Opacity = 0.5\n" +
+            "Adrenaline.Text = CurrentMax\n" +
+            "Adrenaline.TextPosition = Center\n" +
+            "Adrenaline.Segments = true\n" +
+            "Food.PositionX = 0.5\n" +
+            "Food.PositionY = 0.03\n" +
+            "Food.Orientation = Horizontal\n" +
+            "Food.Icon = false\n" +
+            "GuardianPower.PositionX = 0.105\n" +
+            "GuardianPower.PositionY = 0.11\n" +
+            "Stagger.PositionX = 0.435\n" +
+            "Stagger.PositionY = 0.5\n" +
+            "Mount.PositionX = 0.5\n" +
+            "Mount.PositionY = 0.16\n" +
+            "Ship.PositionX = 0.93\n" +
+            "Ship.PositionY = 0.635\n" +
+            "SaveIcon.PositionX = 0.015\n" +
+            "SaveIcon.PositionY = 0.955\n" +
+            "BadConnection.PositionX = 0.015\n" +
+            "BadConnection.PositionY = 0.955\n" +
+            "Mod.Compass.PositionX = 0.5\n" +
+            "Mod.Compass.PositionY = 0.98\n" +
+            "Mod.WeaponArts.PositionX = 0.5\n" +
+            "Mod.WeaponArts.PositionY = 0.175\n" +
+            "Mod.ExtraSlotsFoodHotBar.PositionX = 0.05\n" +
+            "Mod.ExtraSlotsFoodHotBar.PositionY = 0.05\n" +
+            "Mod.ExtraSlotsAmmoHotBar.PositionX = 0.05\n" +
+            "Mod.ExtraSlotsAmmoHotBar.PositionY = 0.18\n" +
+            "Mod.ExtraSlotsQuickSlotsHotBar.PositionX = 0.05\n" +
+            "Mod.ExtraSlotsQuickSlotsHotBar.PositionY = 0.115\n";
+
         private void BuildPresets()
         {
             _builtIn.Clear();
@@ -138,6 +217,9 @@ namespace HudLayout
 
             p = NewBuiltIn("Numbers", "Числа");
             UseBarStyle(p, "Numeric");
+
+            p = NewBuiltIn("AuthorsChoice", "Выбор автора");
+            foreach (KeyValuePair<string, string> kv in FromText(AuthorsChoiceText).Values) p.Values[kv.Key] = kv.Value;
         }
 
         // ------------------------------------------------------------------
