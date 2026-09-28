@@ -140,6 +140,19 @@ namespace HudLayout
             return null;
         }
 
+        // "ExtraSlotsQuickSlotsHotBar" -> "Extra Slots Quick Slots Hot Bar": a name that can wrap.
+        private static string Words(string name)
+        {
+            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+            for (int i = 0; i < name.Length; i++)
+            {
+                char c = name[i];
+                if (i > 0 && char.IsUpper(c) && char.IsLower(name[i - 1])) sb.Append(' ');
+                sb.Append(c == '_' ? ' ' : c);
+            }
+            return sb.ToString();
+        }
+
         private static bool IsOurs(Transform t)
         {
             return t != null && t.name.StartsWith("HudLayout_", StringComparison.Ordinal);
@@ -221,7 +234,8 @@ namespace HudLayout
             }
             foreach (RectTransform rt in found)
             {
-                ElementSettings s = BindLate("Mod." + rt.name, rt.name, rt.name);
+                string label = Words(rt.name);
+                ElementSettings s = BindLate("Mod." + rt.name, label, label);
                 if (HudElementOf(s) != null) continue;   // two objects of one name: the first one
                 try
                 {

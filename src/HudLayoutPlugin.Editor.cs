@@ -39,7 +39,7 @@ namespace HudLayout
         private bool _savedSaveOnSet = true;
 
         private GUIStyle _labelStyle, _shadowStyle, _headerStyle, _hintStyle, _smallButton, _wrapLabel, _wrapToggle;
-        private GUIStyle _windowStyle;
+        private GUIStyle _windowStyle, _gridStyle;
         private Texture2D _windowBg;
         private float _windowBgAlpha = -1f;
 
@@ -362,6 +362,8 @@ namespace HudLayout
             _smallButton = new GUIStyle(GUI.skin.button);
             _smallButton.padding = new RectOffset(4, 4, 2, 2);
             _smallButton.wordWrap = true;
+            _gridStyle = new GUIStyle(GUI.skin.button);
+            _gridStyle.wordWrap = true;
             // long texts wrap instead of widening the window past the screen
             _wrapLabel = new GUIStyle(GUI.skin.label);
             _wrapLabel.wordWrap = true;
@@ -622,18 +624,10 @@ namespace HudLayout
                               "ПКМ: вернуть на место игры (Shift — всю раскладку). Стрелки: сдвиг (Shift ×10), Tab: следующий элемент. " +
                               "Ctrl при перетаскивании: без привязки. Уголок этого окна меняет его размер. Esc или " + _cfgEditKey.Value + ": готово."), _hintStyle);
 
-            string[] names = new string[_hudElements.Count];
-            int selIndex = 0;
-            for (int i = 0; i < _hudElements.Count; i++)
-            {
-                names[i] = ElementLabel(_hudElements[i].Settings);
-                if (_hudElements[i].Settings == _sel) selIndex = i;
-            }
-            if (names.Length > 0)
-            {
-                int ni = GUILayout.SelectionGrid(selIndex, names, 3);
-                if (ni != selIndex) Select(_hudElements[ni].Settings);
-            }
+            // the elements in three groups; long names wrap instead of widening the window
+            ElementGroup(L("Bars and food", "Полосы и еда"), 0);
+            ElementGroup(L("Rest of the HUD", "Остальной HUD"), 1);
+            ElementGroup(L("Other mods", "Другие моды"), 2);
 
             ElementSettings s = _sel ?? Get(ElementId.Health);
             DrawLayoutSection(s);
@@ -653,6 +647,30 @@ namespace HudLayout
             GUILayout.EndScrollView();
             GUI.Label(new Rect(_winW - 18f, _winH - 20f, 18f, 18f), "◢", _hintStyle);
             GUI.DragWindow(new Rect(0f, 0f, 10000f, 22f));
+        }
+
+        // 0 bars and food, 1 the rest of the vanilla HUD, 2 other mods (found or registered)
+        private static int GroupOf(ElementSettings s)
+        {
+            if (!s.IsSimple) return 0;
+            return s.Key.StartsWith("Mod.", StringComparison.Ordinal) || s.Key.StartsWith("Api.", StringComparison.Ordinal) ? 2 : 1;
+        }
+
+        private void ElementGroup(string title, int group)
+        {
+            List<HudElement> list = new List<HudElement>();
+            foreach (HudElement e in _hudElements) if (GroupOf(e.Settings) == group) list.Add(e);
+            if (list.Count == 0) return;
+            GUILayout.Label(title, _hintStyle);
+            string[] names = new string[list.Count];
+            int sel = -1;
+            for (int i = 0; i < list.Count; i++)
+            {
+                names[i] = group == 2 ? L(list[i].Settings.LabelEn, list[i].Settings.LabelRu) : ElementLabel(list[i].Settings);
+                if (list[i].Settings == _sel) sel = i;
+            }
+            int n = GUILayout.SelectionGrid(sel, names, group == 2 ? 2 : 3, _gridStyle);
+            if (n != sel && n >= 0) Select(list[n].Settings);
         }
 
         private void Header(string text)
@@ -677,7 +695,7 @@ namespace HudLayout
         {
             GUILayout.Label(label, _wrapLabel);
             int cur = Array.IndexOf(values, e.Value);
-            int n = GUILayout.SelectionGrid(cur, labels, columns);
+            int n = GUILayout.SelectionGrid(cur, labels, columns, _gridStyle);
             if (n != cur && n >= 0 && n < values.Length) e.Value = values[n];
         }
 
@@ -732,7 +750,7 @@ namespace HudLayout
                     if (styles[i].Name == s.Style.Value) cur = i;
                 }
                 GUILayout.Label(L("Style: ", "Стиль: ") + StyleLabel(s, s.Style.Value));
-                int n = GUILayout.SelectionGrid(cur, labels, 3);
+                int n = GUILayout.SelectionGrid(cur, labels, 3, _gridStyle);
                 if (n != cur && n >= 0) ApplyStyle(s, styles[n].Name);
             }
 
