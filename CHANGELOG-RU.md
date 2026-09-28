@@ -4,6 +4,13 @@
 
 Версия задаётся в одном месте — `HudLayoutPlugin.Version` в `src/HudLayoutPlugin.cs`.
 
+## 0.11.0
+
+- **`HudLayout.HudLayoutApi` для других модов**: `Register(id, RectTransform, имя[, wrap])`,
+  `Unregister(id)`, `IsEditing`, `ApiVersion`. Вызывается через рефлексию, без жёсткой
+  зависимости. Для объектов вне hudroot (собственный canvas мода) и для нормального имени в
+  редакторе; настройки — в `30 Mod <id>`. См. README.
+
 ## 0.10.0
 
 - **Остальной HUD тоже двигается** — как простые элементы (положение, размер, видимость,

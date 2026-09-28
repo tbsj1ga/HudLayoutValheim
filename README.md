@@ -31,6 +31,11 @@ yet. History: [CHANGELOG.md](CHANGELOG.md), plan: [ROADMAP.md](ROADMAP.md).
   one line and import one from a friend. They are text files in
   `BepInEx/config/j1ga.hudlayout.presets/`, one per preset, editable by hand.
 
+**The rest of the HUD** — hotbar, Forsaken power, status effects, minimap, raid bar, action
+progress, stagger bar, mount panel, ship controls, key hints, messages, save and connection
+icons — and **other mods' HUD elements** (e.g. ExtraSlots' hotbars) can be moved, resized,
+hidden and faded the same way, in the editor, presets and config.
+
 ## Edit mode
 
 Press **F7** in the game (`00 General / EditModeKey`). The character stops, a cursor appears,
@@ -71,6 +76,25 @@ Position is a fraction of the screen: `0,0` is the bottom left corner, `1,1` the
   the objects by reference (the usual case) are not affected.
 - In build mode and at a ship's helm the game lifts the stamina, eitr and adrenaline bars;
   moved bars are lifted by the same amount (`FollowBuildShift`).
+
+## For mod authors
+
+Anything your mod puts straight into `hudroot` is already movable (section `30 Mod <name>`).
+For an object elsewhere (your own canvas), or to give it a proper name, register it — through
+reflection, so HudLayout stays optional:
+
+```csharp
+Type api = Type.GetType("HudLayout.HudLayoutApi, HudLayout");
+if (api != null)
+    api.GetMethod("Register", new[] { typeof(string), typeof(RectTransform), typeof(string) })
+       .Invoke(null, new object[] { "MyMod.Compass", compassRect, "Compass" });
+```
+
+- It is taken over within two seconds; register again (same id) if you recreate the object.
+- HudLayout composes its offset, scale and rotation onto your object's pose. Keep setting your
+  position as you like: what you write becomes the base. The object stays in your hierarchy
+  (`Register(id, rect, name, true)` wraps it instead — only if nothing finds it by path).
+- `Unregister(id)` gives it back; `IsEditing` tells whether the editor is open.
 
 ## Building
 

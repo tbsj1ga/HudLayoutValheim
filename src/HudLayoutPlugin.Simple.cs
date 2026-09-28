@@ -232,9 +232,57 @@ namespace HudLayout
             }
         }
 
-        // Elements registered through HudLayoutApi (next step).
+        // Elements registered through HudLayoutApi. A new object under a known id (the mod
+        // rebuilt it) replaces the old one; the settings stay.
         private void AttachApiElements()
         {
+            if (HudLayoutApi.Entries.Count == 0) return;
+            foreach (HudLayoutApi.Entry a in new List<HudLayoutApi.Entry>(HudLayoutApi.Entries.Values))
+            {
+                if (a.Target == null) continue;   // destroyed; waits for a new Register
+                ElementSettings s = BindLate("Api." + a.Id, a.Name, a.Name);
+                HudElement cur = HudElementOf(s);
+                if (cur != null)
+                {
+                    if (cur.Target == a.Target) continue;
+                    Unhook(cur);
+                }
+                // found by the hudroot scan before its mod registered it: the registration wins
+                foreach (HudElement other in new List<HudElement>(_hudElements))
+                    if (other.Target == a.Target) Unhook(other);
+                try
+                {
+                    if (AttachSimple(s, a.Target, !a.Wrap) != null) Logger.LogInfo("HUD element registered through the API: " + a.Id);
+                }
+                catch (Exception ex) { Logger.LogWarning("Could not take " + a.Id + ": " + ex.Message); }
+            }
+        }
+
+        internal void ForgetApiElement(string id)
+        {
+            ElementSettings s = FindSettings("Api." + id);
+            HudElement e = s != null ? HudElementOf(s) : null;
+            if (e != null) Unhook(e);
+        }
+
+        // Lets go of an element: a direct one gets its own pose back, a wrapped one keeps its
+        // wrapper (taking it out could upset its owner) but with no offset.
+        private void Unhook(HudElement e)
+        {
+            if (e.Direct && e.Target != null && e.HasWritten)
+            {
+                e.Target.localPosition = e.BaseLp;
+                e.Target.localScale = e.BaseScale;
+                e.Target.localRotation = e.BaseRot;
+            }
+            else if (e.Wrapper != null)
+            {
+                e.Wrapper.localPosition = Vector3.zero;
+                e.Wrapper.localRotation = Quaternion.identity;
+                e.Wrapper.localScale = Vector3.one;
+            }
+            if (e.Group != null) e.Group.alpha = 1f;
+            _hudElements.Remove(e);
         }
 
         private bool IsWrappedTarget(Transform t)

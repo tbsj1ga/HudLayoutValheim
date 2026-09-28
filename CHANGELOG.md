@@ -4,6 +4,13 @@
 
 The version is set in one place — `HudLayoutPlugin.Version` in `src/HudLayoutPlugin.cs`.
 
+## 0.11.0
+
+- **`HudLayout.HudLayoutApi` for other mods**: `Register(id, RectTransform, name[, wrap])`,
+  `Unregister(id)`, `IsEditing`, `ApiVersion`. Called through reflection, no hard dependency.
+  For objects outside hudroot (a mod's own canvas) and for a proper name in the editor; the
+  settings go to `30 Mod <id>`. See the README.
+
 ## 0.10.0
 
 - **The rest of the HUD is movable too**, as simple elements (position, scale, visibility,
