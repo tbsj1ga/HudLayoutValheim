@@ -27,6 +27,11 @@ namespace HudLayout
 
         private Rect _win;                  // position; the size is _winW x _winH (GUILayout.Window would undo a size change made inside it)
         private float _winW = 470f, _winH = 700f;
+        private bool _collapsed;            // the window folded to its title bar, to see and drag the HUD under it
+        private const float TitleH = 24f;
+
+        // The height the window has now: folded or not.
+        private float WinH { get { return _collapsed ? TitleH : _winH; } }
         private bool _winPlaced;
         private Vector2 _scroll;
         private string _saveName = "";
@@ -312,13 +317,13 @@ namespace HudLayout
 
                 Matrix4x4 old = GUI.matrix;
                 GUI.matrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(k, k, 1f));
-                _win = GUILayout.Window(WindowId, new Rect(_win.x, _win.y, _winW, _winH), DrawWindow,
+                _win = GUILayout.Window(WindowId, new Rect(_win.x, _win.y, _winW, WinH), DrawWindow,
                     L("HudLayout — edit mode", "HudLayout — редактор HUD"), WindowStyle(),
-                    GUILayout.Width(_winW), GUILayout.Height(_winH));
+                    GUILayout.Width(_winW), GUILayout.Height(WinH));
                 // the whole window stays on the screen
-                _win.width = _winW; _win.height = _winH;
+                _win.width = _winW; _win.height = WinH;
                 _win.x = Mathf.Clamp(_win.x, 0f, sw - _winW);
-                _win.y = Mathf.Clamp(_win.y, 0f, sh - _winH);
+                _win.y = Mathf.Clamp(_win.y, 0f, sh - WinH);
                 GUI.matrix = old;
             }
             catch (Exception e) { Fail("editor", e); }
@@ -333,7 +338,7 @@ namespace HudLayout
         private Rect WindowOnScreen()
         {
             float k = UiScale();
-            return new Rect(_win.x * k, _win.y * k, _winW * k, _winH * k);
+            return new Rect(_win.x * k, _win.y * k, _winW * k, WinH * k);
         }
 
         // The grip in the window's bottom right corner that resizes it (GUI space).
@@ -466,7 +471,7 @@ namespace HudLayout
             switch (ev.type)
             {
                 case EventType.MouseDown:
-                    if (ev.button == 0 && ResizeGrip().Contains(gui))
+                    if (ev.button == 0 && !_collapsed && ResizeGrip().Contains(gui))
                     {
                         _drag = DragKind.ResizeWindow;
                         ev.Use();
@@ -583,6 +588,12 @@ namespace HudLayout
                         return;
                     }
                     if (GUIUtility.keyboardControl != 0) return;   // typing in a field of the window
+                    if (ev.keyCode == KeyCode.H)
+                    {
+                        _collapsed = !_collapsed;
+                        ev.Use();
+                        return;
+                    }
                     HudElement cur2 = HudElementOf(_sel);
                     if (ev.keyCode == KeyCode.Tab)
                     {
@@ -611,6 +622,18 @@ namespace HudLayout
         // ------------------------------------------------------------------
         private void DrawWindow(int id)
         {
+            // fold / unfold, in the title bar (before DragWindow, which would take the click)
+            if (GUI.Button(new Rect(_winW - 30f, 3f, 26f, 18f), _collapsed ? "+" : "–", _smallButton))
+            {
+                _collapsed = !_collapsed;
+                GUIUtility.keyboardControl = 0;
+            }
+            if (_collapsed)
+            {
+                GUI.DragWindow(new Rect(0f, 0f, _winW - 34f, TitleH));
+                return;
+            }
+
             // vertical scrolling only; the content is exactly as wide as the window's inside
             _scroll = GUILayout.BeginScrollView(_scroll, false, true, GUIStyle.none, GUI.skin.verticalScrollbar);
             GUILayout.BeginVertical(GUILayout.Width(_winW - 46f));
@@ -618,11 +641,11 @@ namespace HudLayout
             GUILayout.Label(L("Drag an element to move it, a yellow corner to resize it, a blue side to change length or thickness. " +
                               "Wheel: size, Ctrl+wheel: length, Shift+wheel: thickness. " +
                               "Right click: back to the game's place (Shift: whole layout). Arrows: nudge (Shift ×10), Tab: next element. " +
-                              "Ctrl while dragging: no snapping. The corner of this window resizes it. Esc or " + _cfgEditKey.Value + ": done.",
+                              "Ctrl while dragging: no snapping. The corner of this window resizes it, – or H folds it. Esc or " + _cfgEditKey.Value + ": done.",
                               "Тащите элемент, чтобы передвинуть; жёлтый уголок — размер; синяя середина стороны — длина или толщина. " +
                               "Колесо: размер, Ctrl+колесо: длина, Shift+колесо: толщина. " +
                               "ПКМ: вернуть на место игры (Shift — всю раскладку). Стрелки: сдвиг (Shift ×10), Tab: следующий элемент. " +
-                              "Ctrl при перетаскивании: без привязки. Уголок этого окна меняет его размер. Esc или " + _cfgEditKey.Value + ": готово."), _hintStyle);
+                              "Ctrl при перетаскивании: без привязки. Уголок этого окна меняет его размер, – или H сворачивает его. Esc или " + _cfgEditKey.Value + ": готово."), _hintStyle);
 
             // the elements in three groups; long names wrap instead of widening the window
             ElementGroup(L("Bars and food", "Полосы и еда"), 0);
@@ -646,7 +669,7 @@ namespace HudLayout
             GUILayout.EndVertical();
             GUILayout.EndScrollView();
             GUI.Label(new Rect(_winW - 18f, _winH - 20f, 18f, 18f), "◢", _hintStyle);
-            GUI.DragWindow(new Rect(0f, 0f, 10000f, 22f));
+            GUI.DragWindow(new Rect(0f, 0f, _winW - 34f, 22f));
         }
 
         // 0 bars and food, 1 the rest of the vanilla HUD, 2 other mods (found or registered)

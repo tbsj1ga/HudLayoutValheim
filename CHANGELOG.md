@@ -4,6 +4,10 @@
 
 The version is set in one place — `HudLayoutPlugin.Version` in `src/HudLayoutPlugin.cs`.
 
+## 0.11.2
+
+- Editor window folds to its title bar (the – / + button, or H) to see and drag the HUD under it; still draggable when folded.
+
 ## 0.11.1
 
 - Editor window: the element list is split into groups (bars and food, rest of the HUD, other mods) and long names wrap, so the content fits the window again; other mods' object names are split into words.
