@@ -4,6 +4,13 @@
 
 The version is set in one place — `HudLayoutPlugin.Version` in `src/HudLayoutPlugin.cs`.
 
+## 0.12.2
+
+- Editor: the window title is white; the language (as the game / English / Russian) can be
+  switched in the window too (it was already `00 General / Language` in the config).
+- Elements left where the game puts them are no longer measured every frame (the simple
+  ones walked all their graphics each frame for nothing).
+
 ## 0.12.1
 
 - Fixed: the folded editor window vanished instead of showing its title bar.

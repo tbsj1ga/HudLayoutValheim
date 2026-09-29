@@ -150,7 +150,7 @@ namespace HudLayout
             TryAttach("adrenaline", delegate { AttachBar(hud, ElementId.Adrenaline, hud.m_adrenalineBarRoot, hud.m_adrenalineBarFast, hud.m_adrenalineBarSlow, hud.m_adrenalineText, hud.m_adrenalineAnimator); });
             AttachVanillaSimple();
             _nextScan = 0f;
-            Logger.LogInfo("HUD found: " + _hudElements.Count + " of 5 elements wrapped.");
+            Logger.LogInfo("HUD found: " + _hudElements.Count + " elements made movable.");
         }
 
         private void TryAttach(string what, Action body)
@@ -676,8 +676,22 @@ namespace HudLayout
                 }
             }
 
-            // what the element covers, in wrapper space (the same as the game's layout, since
-            // everything we do happens on the wrapper itself)
+            // An element left where the game puts it, at its size and turn, needs no measuring:
+            // its transform is the identity whatever it covers. Most of the simple ones are like
+            // that, and measuring them means walking all their graphics every frame. The editor
+            // needs the frames, so it always measures.
+            bool atRest = !_editing && (!on || (!s.HasPosition && s.Scale.Value == 1f && AngleFor(s) == 0f));
+            Vector2 c = Vector2.zero;
+            if (!atRest) c = Measure(e, on);
+
+            ApplyPose(e, on, c);
+        }
+
+        // What the element covers, in its layout space (the wrapper's; for Direct the parent's
+        // at the base pose), and the point of it that stays at the configured position.
+        private Vector2 Measure(HudElement e, bool on)
+        {
+            ElementSettings s = e.Settings;
             Vector2 min = new Vector2(float.MaxValue, float.MaxValue), max = new Vector2(float.MinValue, float.MinValue);
             Vector3[] corners = _corners;
             if (e.AutoBounds)
@@ -715,6 +729,12 @@ namespace HudLayout
                 }
             }
             e.Pivot = c;
+            return c;
+        }
+
+        private void ApplyPose(HudElement e, bool on, Vector2 c)
+        {
+            ElementSettings s = e.Settings;
 
             // the game's own lift of the bar in build mode / at the helm
             e.Shift = e.Panel != null ? e.Panel.anchoredPosition - e.PanelBase : Vector2.zero;

@@ -7,9 +7,8 @@ adrenaline bars and the food icons. An in-game editor, a choice of styles for ev
 element, ready-made presets and your own presets. Client-side only: other players and the
 server need nothing.
 
-**Status: 0.9.1, feature-complete, awaiting in-game testing.** The build is checked against
-the current game assemblies (`check-refs.ps1`); the in-game behaviour has not been verified
-yet. History: [CHANGELOG.md](CHANGELOG.md), plan: [ROADMAP.md](ROADMAP.md).
+**Status: 0.12, in use by the author.** Every build is checked against the current game
+assemblies (`check-refs.ps1`). History: [CHANGELOG.md](CHANGELOG.md), plan: [ROADMAP.md](ROADMAP.md).
 
 ## What it does
 

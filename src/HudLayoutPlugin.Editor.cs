@@ -398,7 +398,7 @@ namespace HudLayout
             if (_windowStyle == null)
             {
                 _windowStyle = new GUIStyle(GUI.skin.window);
-                _windowStyle.normal.textColor = new Color(1f, 0.85f, 0.45f);
+                _windowStyle.normal.textColor = Color.white;
                 _windowStyle.onNormal.textColor = _windowStyle.normal.textColor;
                 _windowStyle.fontStyle = FontStyle.Bold;
             }
@@ -927,9 +927,15 @@ namespace HudLayout
             GUILayout.EndHorizontal();
         }
 
+        private static readonly string[] Languages = { "Auto", "English", "Russian" };
+
         private void DrawSettingsSection()
         {
             Header(L("Settings", "Настройки"));
+            GUILayout.Label(L("Language of this window", "Язык этого окна"), _wrapLabel);
+            int li = Mathf.Max(0, Array.IndexOf(Languages, _cfgLanguage.Value));
+            int ln = GUILayout.SelectionGrid(li, new[] { L("As the game", "Как в игре"), "English", "Русский" }, 3, _gridStyle);
+            if (ln != li) _cfgLanguage.Value = Languages[ln];
             bool snap = GUILayout.Toggle(_cfgSnap.Value, L(" Snap to grid", " Привязка к сетке"), _wrapToggle);
             if (snap != _cfgSnap.Value) _cfgSnap.Value = snap;
             bool lift = GUILayout.Toggle(_cfgBuildShift.Value, L(" Lift bars in build mode like the game", " Поднимать полосы в режиме строительства, как игра"), _wrapToggle);
