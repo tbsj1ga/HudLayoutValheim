@@ -4,6 +4,10 @@
 
 The version is set in one place — `HudLayoutPlugin.Version` in `src/HudLayoutPlugin.cs`.
 
+## 0.12.1
+
+- Fixed: the folded editor window vanished instead of showing its title bar.
+
 ## 0.12.0
 
 - New built-in preset **AuthorsChoice**: every bar horizontal in the bottom centre with a

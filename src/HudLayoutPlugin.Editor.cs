@@ -28,7 +28,7 @@ namespace HudLayout
         private Rect _win;                  // position; the size is _winW x _winH (GUILayout.Window would undo a size change made inside it)
         private float _winW = 470f, _winH = 700f;
         private bool _collapsed;            // the window folded to its title bar, to see and drag the HUD under it
-        private const float TitleH = 24f;
+        private const float TitleH = 26f;
 
         // The height the window has now: folded or not.
         private float WinH { get { return _collapsed ? TitleH : _winH; } }
@@ -317,9 +317,14 @@ namespace HudLayout
 
                 Matrix4x4 old = GUI.matrix;
                 GUI.matrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(k, k, 1f));
-                _win = GUILayout.Window(WindowId, new Rect(_win.x, _win.y, _winW, WinH), DrawWindow,
-                    L("HudLayout — edit mode", "HudLayout — редактор HUD"), WindowStyle(),
-                    GUILayout.Width(_winW), GUILayout.Height(WinH));
+                string title = L("HudLayout — edit mode", "HudLayout — редактор HUD");
+                if (_collapsed)
+                    // a plain window of exactly this rectangle: a layout window with no content
+                    // inside collapses to nothing
+                    _win = GUI.Window(WindowId, new Rect(_win.x, _win.y, _winW, TitleH), DrawWindow, title, WindowStyle());
+                else
+                    _win = GUILayout.Window(WindowId, new Rect(_win.x, _win.y, _winW, WinH), DrawWindow, title, WindowStyle(),
+                        GUILayout.Width(_winW), GUILayout.Height(WinH));
                 // the whole window stays on the screen
                 _win.width = _winW; _win.height = WinH;
                 _win.x = Mathf.Clamp(_win.x, 0f, sw - _winW);
