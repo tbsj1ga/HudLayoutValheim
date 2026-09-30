@@ -14,6 +14,8 @@ namespace HudLayout
     public partial class HudLayoutPlugin
     {
         private bool _editing;
+        private bool _snap = true;              // snap to the grid while dragging (Ctrl: off)
+        private const float GridStep = 0.005f;  // a fraction of the screen
         internal bool Editing { get { return _editing; } }
 
         private ElementSettings _sel;       // the selected element (null = the first one)
@@ -247,7 +249,7 @@ namespace HudLayout
         {
             if (snap)
             {
-                float step = _cfgGrid.Value;
+                float step = GridStep;
                 p.x = Mathf.Round(p.x / step) * step;
                 p.y = Mathf.Round(p.y / step) * step;
                 if (Mathf.Abs(p.x - 0.5f) < step * 2f) p.x = 0.5f;   // the middle of the screen pulls
@@ -287,7 +289,7 @@ namespace HudLayout
         {
             Vector2 pos;
             if (!CurrentPosition(e, out pos)) return;
-            float step = _cfgGrid.Value * (big ? 10f : 1f);
+            float step = GridStep * (big ? 10f : 1f);
             SetPosition(e.Settings, pos + dir * step, false);
         }
 
@@ -449,7 +451,7 @@ namespace HudLayout
                 Fill(r, new Color(c.r, c.g, c.b, isSel ? 0.14f : 0.06f));
                 Outline(r, c, isSel ? 2f : 1f);
                 string label = ElementLabel(e.Settings);
-                if (e.Settings.Vis.Value == Visibility.Hidden) label += L(" (hidden)", " (скрыт)");
+                if (IsHidden(e.Settings)) label += L(" (hidden)", " (скрыт)");
                 Shadowed(new Rect(r.xMin, r.yMin - 22f, 260f, 22f), label);
                 if (!isSel) continue;
                 foreach (Rect h in Handles(r)) { Fill(h, sel); Outline(h, Color.black, 1f); }
@@ -550,18 +552,18 @@ namespace HudLayout
                     {
                         Vector2 pos;
                         if (ScreenToPosition(e, GuiToScreen(gui) + _grab, out pos))
-                            SetPosition(e.Settings, pos, _cfgSnap.Value && !ev.control);
+                            SetPosition(e.Settings, pos, _snap && !ev.control);
                     }
                     else if (_drag == DragKind.Edge)
                     {
                         float d = AxisDistance(GuiToScreen(gui), PivotScreen(e), _edgeAlongX);
-                        float v = Snapped(_dragStartScale * d / _dragStartDist, 0.25f, 4f, _cfgSnap.Value && !ev.control);
+                        float v = Snapped(_dragStartScale * d / _dragStartDist, 0.25f, 4f, _snap && !ev.control);
                         if (_edgeTarget.Value != v) _edgeTarget.Value = v;
                     }
                     else
                     {
                         float d = Vector2.Distance(GuiToScreen(gui), PivotScreen(e));
-                        float v = Snapped(_dragStartScale * d / _dragStartDist, 0.25f, 4f, _cfgSnap.Value && !ev.control);
+                        float v = Snapped(_dragStartScale * d / _dragStartDist, 0.25f, 4f, _snap && !ev.control);
                         if (e.Settings.Scale.Value != v) e.Settings.Scale.Value = v;
                     }
                     ev.Use();
@@ -782,14 +784,15 @@ namespace HudLayout
                 if (n != cur && n >= 0) ApplyStyle(s, styles[n].Name);
             }
 
-            if (s.IsBar)
+            if (s.Vis != null)
                 Choice(L("Visibility", "Видимость"), s.Vis,
                     new[] { Visibility.Vanilla, Visibility.Always, Visibility.Hidden, Visibility.NotFull },
                     new[] { L("As in game", "Как в игре"), L("Always", "Всегда"), L("Hidden", "Скрыта"), L("When not full", "Когда не полная") }, 2);
-            else
-                Choice(L("Visibility", "Видимость"), s.Vis,
-                    new[] { Visibility.Vanilla, Visibility.Hidden },
-                    new[] { L("Shown", "Видна"), L("Hidden", "Скрыта") }, 2);
+            else if (s.Visible != null)
+            {
+                bool vis = GUILayout.Toggle(s.Visible.Value, L(" Shown", " Показывать"), _wrapToggle);
+                if (vis != s.Visible.Value) s.Visible.Value = vis;
+            }
             Slider(L("Opacity", "Непрозрачность"), s.Opacity, 0.05f, 1f);
             if (s.Icon != null)
             {
@@ -936,8 +939,8 @@ namespace HudLayout
             int li = Mathf.Max(0, Array.IndexOf(Languages, _cfgLanguage.Value));
             int ln = GUILayout.SelectionGrid(li, new[] { L("As the game", "Как в игре"), "English", "Русский" }, 3, _gridStyle);
             if (ln != li) _cfgLanguage.Value = Languages[ln];
-            bool snap = GUILayout.Toggle(_cfgSnap.Value, L(" Snap to grid", " Привязка к сетке"), _wrapToggle);
-            if (snap != _cfgSnap.Value) _cfgSnap.Value = snap;
+            bool snap = GUILayout.Toggle(_snap, L(" Snap to grid", " Привязка к сетке"), _wrapToggle);
+            _snap = snap;
             bool lift = GUILayout.Toggle(_cfgBuildShift.Value, L(" Lift bars in build mode like the game", " Поднимать полосы в режиме строительства, как игра"), _wrapToggle);
             if (lift != _cfgBuildShift.Value) _cfgBuildShift.Value = lift;
             GUILayout.BeginHorizontal();

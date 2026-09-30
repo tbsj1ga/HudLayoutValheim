@@ -4,6 +4,16 @@
 
 The version is set in one place — `HudLayoutPlugin.Version` in `src/HudLayoutPlugin.cs`.
 
+## 1.0.1
+
+- A tidier config: options in a sensible order in ConfigurationManager (look, place, size,
+  details) with plain descriptions; rarely needed ones (`Anchor`, `FollowBuildShift`,
+  `EditorOpacity`, `ModElements`, `IgnoreModElements`) marked advanced.
+- Removed: `SnapToGrid` (the switch is in the editor window), `GridStep`, `LastPreset`.
+- Food and the other simple elements have a plain `Visible` on/off instead of a four-way
+  `Visibility` of which two choices did nothing for them; `Hidden` carries over.
+- Old entries are taken out of existing config files.
+
 ## 1.0.0 — first public release
 
 Everything below, from 0.9.0 on, is what this version contains:

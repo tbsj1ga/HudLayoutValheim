@@ -73,12 +73,16 @@ namespace HudLayout
         // ------------------------------------------------------------------
         // settings
         // ------------------------------------------------------------------
+        private void BindModOptions(string g)
+        {
+            _cfgModElements = Config.Bind(g, "ModElements", true,
+                D("Make other mods' HUD elements movable too (e.g. ExtraSlots' hotbars).", null, true));
+            _cfgIgnore = Config.Bind(g, "IgnoreModElements", "",
+                D("Names of other mods' HUD elements to leave alone, comma-separated (the name after '30 Mod').", null, true));
+        }
+
         private void BindVanillaSimple()
         {
-            _cfgModElements = Config.Bind("00 General", "ModElements", true,
-                "Also make movable what other mods put into the HUD (e.g. ExtraSlots' hotbars). Each gets a section '30 Mod <name>' when first seen.");
-            _cfgIgnore = Config.Bind("00 General", "IgnoreModElements", "",
-                "Names of other mods' HUD objects to leave alone, comma-separated (as in the '30 Mod <name>' sections).");
             for (int i = 0; i < VanillaSimple.Length; i++)
             {
                 SimpleDef d = VanillaSimple[i];
@@ -91,20 +95,21 @@ namespace HudLayout
             ElementSettings s = new ElementSettings();
             s.Id = ElementId.Other; s.Key = key; s.Section = section; s.IsSimple = true;
             s.LabelEn = en; s.LabelRu = ru;
-            string what = isMod ? "'" + en + "' (another mod's)" : en.ToLowerInvariant();
+            string what = isMod ? "'" + en + "' (another mod's)" : "the " + en.ToLowerInvariant();
+            _order = 1000;
             s.PosX = Config.Bind(section, "PositionX", -1f,
-                new ConfigDescription("Horizontal position of the " + what + ", fraction of the screen width. -1 = where it normally is.",
-                    new AcceptableValueRange<float>(-1f, 1f)));
+                D("Where " + what + " is across the screen: 0 = left edge, 1 = right edge, -1 = where it normally is." + EditHint, Range(-1f, 1f)));
             s.PosY = Config.Bind(section, "PositionY", -1f,
-                new ConfigDescription("Vertical position of the " + what + ", fraction of the screen height. -1 = where it normally is.",
-                    new AcceptableValueRange<float>(-1f, 1f)));
+                D("Where " + what + " is up the screen: 0 = bottom, 1 = top, -1 = where it normally is." + EditHint, Range(-1f, 1f)));
             s.Scale = Config.Bind(section, "Scale", 1f,
-                new ConfigDescription("Size of the " + what + ".", new AcceptableValueRange<float>(0.25f, 4f)));
-            s.Vis = Config.Bind(section, "Visibility", Visibility.Vanilla, "Vanilla = shown as usual. Hidden = not shown.");
+                D("Size of " + what + ". 1 = as usual.", Range(0.25f, 4f)));
+            s.Visible = Config.Bind(section, "Visible", true, D("Show " + what + "."));
             s.Opacity = Config.Bind(section, "Opacity", 1f,
-                new ConfigDescription("Opacity of the " + what + ".", new AcceptableValueRange<float>(0.05f, 1f)));
+                D("How opaque " + what + " is. 1 = solid.", Range(0.05f, 1f)));
             s.LayoutEntries.Add(s.PosX); s.LayoutEntries.Add(s.PosY); s.LayoutEntries.Add(s.Scale);
-            s.StyleEntries.Add(s.Vis); s.StyleEntries.Add(s.Opacity);
+            s.StyleEntries.Add(s.Visible); s.StyleEntries.Add(s.Opacity);
+            MigrateVisibility(s);
+            if (_orphansDropped && isMod) { _orphansDropped = false; Config.Save(); }
             return s;
         }
 

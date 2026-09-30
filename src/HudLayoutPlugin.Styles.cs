@@ -57,7 +57,7 @@ namespace HudLayout
         {
             StyleDef d = new StyleDef();
             d.Name = name; d.NameRu = ru;
-            d.Values["Visibility"] = vis.ToString();
+            d.Values["Visible"] = vis == Visibility.Hidden ? "false" : "true";
             d.Values["Opacity"] = F(opacity);
             d.Values["Timers"] = timers ? "true" : "false";
             d.Values["TextSize"] = F(textSize);

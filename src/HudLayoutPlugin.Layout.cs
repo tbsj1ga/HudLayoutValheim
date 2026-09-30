@@ -500,9 +500,9 @@ namespace HudLayout
             if (on)
             {
                 alpha = s.Opacity.Value;
-                if (s.Vis.Value == Visibility.Hidden) alpha = 0f;
-                else if (s.Vis.Value == Visibility.Always) show = HasMax(s.Id, p);
-                else if (s.Vis.Value == Visibility.NotFull && p != null && s.IsBar)
+                if (IsHidden(s)) alpha = 0f;
+                else if (s.Vis != null && s.Vis.Value == Visibility.Always) show = HasMax(s.Id, p);
+                else if (s.Vis != null && s.Vis.Value == Visibility.NotFull && p != null && s.IsBar)
                 {
                     float cur, max;
                     CurrentAndMax(s.Id, p, out cur, out max);

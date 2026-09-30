@@ -251,7 +251,6 @@ namespace HudLayout
                         ParseColor(s);
                     }
                 }
-                _cfgLastPreset.Value = p.Name + (part == PresetPart.All ? "" : " (" + part + ")");
             });
             // a preset from an older version may lack Style or carry a stale one
             if (part != PresetPart.Layout)

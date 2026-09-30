@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using BepInEx;
+using System.Reflection;
 using BepInEx.Configuration;
+using HarmonyLib;
 using UnityEngine;
 
 namespace HudLayout
@@ -42,6 +44,7 @@ namespace HudLayout
 
         public ConfigEntry<float> PosX, PosY, Scale, Length, Thickness, Opacity, TextSize;
         public ConfigEntry<bool> FixedLength, Icon, Segments;
+        public ConfigEntry<bool> Visible;   // food and simple elements: shown or not (the bars have Vis)
         public ConfigEntry<float> SegmentSize;
         public ConfigEntry<Orientation> Orient;
         public ConfigEntry<BarAnchor> Anchor;
@@ -76,11 +79,8 @@ namespace HudLayout
         // ------------------------------------------------------------------
         private ConfigEntry<bool> _cfgEnabled;
         private ConfigEntry<KeyboardShortcut> _cfgEditKey;
-        private ConfigEntry<bool> _cfgSnap;
-        private ConfigEntry<float> _cfgGrid;
         private ConfigEntry<bool> _cfgBuildShift;
         private ConfigEntry<float> _cfgEditorOpacity;
-        private ConfigEntry<string> _cfgLastPreset;
         private static ConfigEntry<string> _cfgLanguage;
 
         internal readonly ElementSettings[] Elements = new ElementSettings[5];
@@ -117,25 +117,58 @@ namespace HudLayout
             catch { return en; }
         }
 
+        // ConfigurationManager: the order of the options within a section (it sorts by Order,
+        // highest first) and "advanced" for the ones few players need. Matched by name.
+        private sealed class ConfigurationManagerAttributes
+        {
+#pragma warning disable 0414, 0649
+            public int? Order;
+            public bool? IsAdvanced;
+#pragma warning restore 0414, 0649
+        }
+
+        private int _order;
+
+        private ConfigDescription D(string text)
+        {
+            return D(text, null, false);
+        }
+
+        private ConfigDescription D(string text, AcceptableValueBase values)
+        {
+            return D(text, values, false);
+        }
+
+        private ConfigDescription D(string text, AcceptableValueBase values, bool advanced)
+        {
+            ConfigurationManagerAttributes a = new ConfigurationManagerAttributes();
+            a.Order = _order--;
+            if (advanced) a.IsAdvanced = true;
+            return new ConfigDescription(text, values, a);
+        }
+
+        private static AcceptableValueRange<float> Range(float min, float max)
+        {
+            return new AcceptableValueRange<float>(min, max);
+        }
+
+        private const string EditHint = " Easiest to set in the F7 editor.";
+
         private void BindConfig()
         {
             const string g = "00 General";
+            _order = 1000;
             _cfgEnabled = Config.Bind(g, "Enabled", true,
-                "Apply the layout and styles. Off = the HUD exactly as the game draws it (settings are kept).");
+                D("Off = the HUD exactly as the game draws it. Your settings are kept."));
             _cfgEditKey = Config.Bind(g, "EditModeKey", new KeyboardShortcut(KeyCode.F7),
-                "Opens and closes the in-game edit mode: drag the elements, resize them by the corners, pick styles and presets. Esc also closes it.");
-            _cfgSnap = Config.Bind(g, "SnapToGrid", true,
-                "In edit mode, snap positions to the grid and scale to steps of 0.05. Hold Ctrl while dragging to place freely.");
-            _cfgGrid = Config.Bind(g, "GridStep", 0.005f,
-                new ConfigDescription("Grid step, as a fraction of the screen.", new AcceptableValueRange<float>(0.001f, 0.05f)));
-            _cfgBuildShift = Config.Bind(g, "FollowBuildShift", true,
-                "In build mode and at a ship's helm the game lifts the stamina, eitr and adrenaline bars so the build panel does not cover them. On = moved bars get lifted by the same amount.");
-            _cfgEditorOpacity = Config.Bind(g, "EditorOpacity", 0.95f,
-                new ConfigDescription("Opacity of the edit mode window's background.", new AcceptableValueRange<float>(0.3f, 1f)));
-            _cfgLastPreset = Config.Bind(g, "LastPreset", "",
-                "The preset applied last (for information; applying one again is done in edit mode or with 'hudlayout apply').");
+                D("Opens the editor: drag the HUD elements with the mouse, resize them, pick styles and presets. Esc or the same key closes it."));
             _cfgLanguage = Config.Bind(g, "Language", "Auto",
-                new ConfigDescription("Language of the edit mode. Auto follows the game.", new AcceptableValueList<string>("Auto", "English", "Russian")));
+                D("Language of the editor. Auto = as the game.", new AcceptableValueList<string>("Auto", "English", "Russian")));
+            _cfgBuildShift = Config.Bind(g, "FollowBuildShift", true,
+                D("In build mode and at a ship's helm the game lifts the stamina, eitr and adrenaline bars out of the way. On = moved bars are lifted too.", null, true));
+            _cfgEditorOpacity = Config.Bind(g, "EditorOpacity", 0.95f,
+                D("How opaque the editor window's background is.", Range(0.3f, 1f), true));
+            BindModOptions(g);
 
             Elements[0] = BindElement(ElementId.Health, "01 Health", "Health", true, true, BarAnchor.Start);
             Elements[1] = BindElement(ElementId.Stamina, "02 Stamina", "Stamina", true, false, BarAnchor.Center);
@@ -145,6 +178,7 @@ namespace HudLayout
 
             foreach (ElementSettings s in Elements) ParseColor(s);
             BindVanillaSimple();
+            DropRetiredOptions();
             Config.SettingChanged += OnSettingChanged;
         }
 
@@ -152,78 +186,133 @@ namespace HudLayout
         {
             ElementSettings s = new ElementSettings();
             s.Id = id; s.Key = key; s.Section = section; s.IsBar = isBar; s.NativeVertical = nativeVertical;
-            string what = isBar ? key.ToLowerInvariant() + " bar" : "food icons";
+            string what = isBar ? "the " + key.ToLowerInvariant() + " bar" : "the food icons";
+            _order = 1000;
 
-            // --- layout
+            // the order here is the order ConfigurationManager shows: look first, then place, size, details
+            string[] styles = StyleNamesFor(isBar);
+            s.Style = Config.Bind(section, "Style", "Vanilla",
+                D("A ready-made look for " + what + ". Picking one fills in the options below; changing one of them makes it Custom.",
+                    new AcceptableValueList<string>(styles)));
+
             s.PosX = Config.Bind(section, "PositionX", -1f,
-                new ConfigDescription("Horizontal position of the " + what + ", fraction of the screen width (0 = left edge, 1 = right). -1 = where the game puts it.",
-                    new AcceptableValueRange<float>(-1f, 1f)));
+                D("Where " + what + " is across the screen: 0 = left edge, 1 = right edge, -1 = where the game puts it." + EditHint, Range(-1f, 1f)));
             s.PosY = Config.Bind(section, "PositionY", -1f,
-                new ConfigDescription("Vertical position of the " + what + ", fraction of the screen height (0 = bottom, 1 = top). -1 = where the game puts it.",
-                    new AcceptableValueRange<float>(-1f, 1f)));
+                D("Where " + what + " is up the screen: 0 = bottom, 1 = top, -1 = where the game puts it." + EditHint, Range(-1f, 1f)));
             s.Scale = Config.Bind(section, "Scale", 1f,
-                new ConfigDescription("Size of the " + what + ". 1 = as in the game.", new AcceptableValueRange<float>(0.25f, 4f)));
+                D("Size of " + what + ". 1 = as in the game.", Range(0.25f, 4f)));
             s.Orient = Config.Bind(section, "Orientation", Orientation.Default,
-                isBar ? "Horizontal or vertical bar. Default = as in the game (health vertical, the others horizontal). The numbers stay upright."
-                      : "A column (Vertical, as in the game) or a row (Horizontal) of food icons.");
+                D(isBar ? "Horizontal or vertical. Default = as in the game (health vertical, the others horizontal)."
+                        : "Vertical = a column (as in the game), Horizontal = a row."));
             s.LayoutEntries.Add(s.PosX); s.LayoutEntries.Add(s.PosY); s.LayoutEntries.Add(s.Scale); s.LayoutEntries.Add(s.Orient);
             if (isBar)
             {
-                s.Anchor = Config.Bind(section, "Anchor", anchor,
-                    "Which point of the bar stays at the position while the bar grows with the maximum: Start (left / bottom), Center or End. Used when a position is set.");
                 s.Length = Config.Bind(section, "Length", 1f,
-                    new ConfigDescription("Length multiplier of the bar (the game makes it longer as the maximum grows). 1 = as in the game.",
-                        new AcceptableValueRange<float>(0.25f, 4f)));
+                    D("How long the bar is. 1 = as in the game.", Range(0.25f, 4f)));
                 s.Thickness = Config.Bind(section, "Thickness", 1f,
-                    new ConfigDescription("Thickness of the bar (across it), independent of the length. The number keeps its size. 1 = as in the game.",
-                        new AcceptableValueRange<float>(0.25f, 4f)));
+                    D("How thick the bar is. 1 = as in the game.", Range(0.25f, 4f)));
                 s.FixedLength = Config.Bind(section, "FixedLength", false,
-                    "On = the bar keeps one length (the game's base length × Length) whatever the maximum; a bigger maximum only changes the number (use Text = CurrentMax to see it). Off = it grows with the maximum as in the game.");
+                    D("On = the bar keeps the same length as your maximum grows; only the number changes. Off = it grows, as in the game."));
+                s.Anchor = Config.Bind(section, "Anchor", anchor,
+                    D("Which end stays in place while the bar grows: Start (left / bottom), Center or End.", null, true));
                 s.LayoutEntries.Add(s.Anchor); s.LayoutEntries.Add(s.Length); s.LayoutEntries.Add(s.Thickness); s.LayoutEntries.Add(s.FixedLength);
-            }
 
-            // --- style
-            string[] styles = StyleNamesFor(isBar);
-            s.Style = Config.Bind(section, "Style", "Vanilla",
-                new ConfigDescription("A ready-made look for the " + what + ". Picking one sets the options below; changing any of them makes it Custom.",
-                    new AcceptableValueList<string>(styles)));
-            s.Vis = Config.Bind(section, "Visibility", Visibility.Vanilla,
-                isBar ? "Vanilla = as in the game (stamina, eitr and adrenaline fade out when not in use). Always = never fade out. Hidden = not shown. NotFull = hidden while full, shown as soon as it drops below 100%."
-                      : "Vanilla = shown. Hidden = not shown.");
+                s.Vis = Config.Bind(section, "Visibility", Visibility.Vanilla,
+                    D("When the bar shows. Vanilla = as in the game, Always = never fades out, Hidden = never, NotFull = only when it isn't full."));
+            }
+            else
+            {
+                s.Visible = Config.Bind(section, "Visible", true, D("Show " + what + "."));
+            }
             s.Opacity = Config.Bind(section, "Opacity", 1f,
-                new ConfigDescription("Opacity of the " + what + ".", new AcceptableValueRange<float>(0.05f, 1f)));
-            s.StyleEntries.Add(s.Style); s.StyleEntries.Add(s.Vis); s.StyleEntries.Add(s.Opacity);
+                D("How opaque " + what + " is. 1 = solid.", Range(0.05f, 1f)));
+            s.StyleEntries.Add(s.Style); s.StyleEntries.Add(isBar ? (ConfigEntryBase)s.Vis : s.Visible); s.StyleEntries.Add(s.Opacity);
             if (isBar)
             {
                 s.Text = Config.Bind(section, "Text", TextMode.Vanilla,
-                    "The number on the bar: Vanilla (as in the game), Hidden, Current, CurrentMax (75/100) or Percent.");
+                    D("The number on the bar: Vanilla (as in the game), Hidden, Current (75), CurrentMax (75/100) or Percent (75%)."));
                 s.TextSize = Config.Bind(section, "TextSize", 1f,
-                    new ConfigDescription("Size of the number on the bar. 1 = as in the game.", new AcceptableValueRange<float>(0.5f, 3f)));
-                s.BarColor = Config.Bind(section, "BarColor", "",
-                    "Colour of the bar as #RRGGBB or #RRGGBBAA. Empty = the game's colour.");
+                    D("Size of the number. 1 = as in the game.", Range(0.5f, 3f)));
                 s.TextPos = Config.Bind(section, "TextPosition", TextPosition.Vanilla,
-                    "Where the number sits: Vanilla (health: middle of the filled part, the others: middle of the bar), Center (always the middle of the bar) or Fill (middle of the filled part, moves as it empties).");
+                    D("Where the number sits: Vanilla (as in the game), Center (middle of the bar) or Fill (middle of the filled part)."));
                 s.Segments = Config.Bind(section, "Segments", false,
-                    "Divide the bar into cells of SegmentSize points each: a bigger maximum means more cells (with FixedLength the cells get narrower instead of the bar longer).");
+                    D("Divide the bar into cells, one per SegmentSize points of your maximum."));
                 s.SegmentSize = Config.Bind(section, "SegmentSize", 10f,
-                    new ConfigDescription("Points per cell when Segments is on.", new AcceptableValueRange<float>(1f, 100f)));
+                    D("Points per cell.", Range(1f, 100f)));
+                s.BarColor = Config.Bind(section, "BarColor", "",
+                    D("Colour of the bar, #RRGGBB. Empty = the game's colour."));
                 s.StyleEntries.Add(s.Text); s.StyleEntries.Add(s.TextSize); s.StyleEntries.Add(s.TextPos); s.StyleEntries.Add(s.BarColor);
                 s.StyleEntries.Add(s.Segments); s.StyleEntries.Add(s.SegmentSize);
             }
             else
             {
-                s.Timers = Config.Bind(section, "Timers", true, "Show the time left on each food icon.");
+                s.Timers = Config.Bind(section, "Timers", true, D("Show the time left on each food icon."));
                 s.TextSize = Config.Bind(section, "TextSize", 1f,
-                    new ConfigDescription("Size of the time left. 1 = as in the game.", new AcceptableValueRange<float>(0.5f, 3f)));
+                    D("Size of the time left. 1 = as in the game.", Range(0.5f, 3f)));
                 s.StyleEntries.Add(s.Timers); s.StyleEntries.Add(s.TextSize);
             }
             if (id == ElementId.Health || id == ElementId.Food)
             {
                 s.Icon = Config.Bind(section, "Icon", true,
-                    id == ElementId.Health ? "Show the heart icon under the health bar." : "Show the food symbol under the food icons.");
+                    D(id == ElementId.Health ? "Show the heart under the health bar." : "Show the food symbol next to the food icons."));
                 s.StyleEntries.Add(s.Icon);
             }
+            if (s.Visible != null) MigrateVisibility(s);
             return s;
+        }
+
+        // Hidden in the editor and in the game: Vis = Hidden for a bar, Visible off for the rest.
+        internal static bool IsHidden(ElementSettings s)
+        {
+            if (s.Vis != null) return s.Vis.Value == Visibility.Hidden;
+            return s.Visible != null && !s.Visible.Value;
+        }
+
+        // ------------------------------------------------------------------
+        // options of older versions, taken out of the file so it only holds what does something
+        // ------------------------------------------------------------------
+        private Dictionary<ConfigDefinition, string> Orphans()
+        {
+            try
+            {
+                PropertyInfo p = AccessTools.Property(typeof(ConfigFile), "OrphanedEntries");
+                return p != null ? p.GetValue(Config, null) as Dictionary<ConfigDefinition, string> : null;
+            }
+            catch { return null; }
+        }
+
+        private bool _orphansDropped;
+
+        private string TakeOrphan(string section, string key)
+        {
+            Dictionary<ConfigDefinition, string> o = Orphans();
+            if (o == null) return null;
+            ConfigDefinition d = new ConfigDefinition(section, key);
+            string v;
+            if (!o.TryGetValue(d, out v)) return null;
+            o.Remove(d);
+            _orphansDropped = true;
+            return v;
+        }
+
+        // Food and simple elements had a four-way Visibility of which only Vanilla / Hidden
+        // meant anything; it is the Visible switch now.
+        private void MigrateVisibility(ElementSettings s)
+        {
+            string old = TakeOrphan(s.Section, "Visibility");
+            if (old != null && old.Trim() == "Hidden") s.Visible.Value = false;
+        }
+
+        private void DropRetiredOptions()
+        {
+            TakeOrphan("00 General", "SnapToGrid");
+            TakeOrphan("00 General", "GridStep");
+            TakeOrphan("00 General", "LastPreset");
+            if (_orphansDropped)
+            {
+                _orphansDropped = false;
+                Config.Save();
+            }
         }
 
         internal ElementSettings Get(ElementId id)

@@ -48,7 +48,7 @@ presets.
 - **Wheel** over an element: size; **Ctrl+wheel**: bar length; **Shift+wheel**: thickness.
 - **Right click**: back to the game's place; **Shift+right click**: reset its whole layout.
 - **Arrows** nudge the selected element (Shift ×10); **Tab** selects the next one.
-- Positions snap to a grid (`GridStep`) and to the middle of the screen; hold **Ctrl** while
+- Positions snap to a grid and to the middle of the screen; hold **Ctrl** while
   dragging to place freely.
 - **Esc** or **F7** closes the editor. The config is written once, on closing.
 
