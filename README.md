@@ -10,7 +10,7 @@ server need nothing.
 **Status: 1.0.0.** Every build is checked against the current game
 assemblies (`check-refs.ps1`). History: [CHANGELOG.md](CHANGELOG.md), plan: [ROADMAP.md](ROADMAP.md).
 
-![Vanilla HUD on the left, the AuthorsChoice preset on the right](docs/media/compare.png)
+![The editor: every element framed, a bar dragged and resized](docs/media/editor.webp)
 
 ## What it does
 

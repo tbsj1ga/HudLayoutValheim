@@ -6,7 +6,7 @@ Drag the health, stamina, eitr and adrenaline bars, the food, the hotbar, the mi
 the rest of the HUD with the mouse, resize them and change how they look — right in the
 game.
 
-![Vanilla HUD on the left, the AuthorsChoice preset on the right](https://raw.githubusercontent.com/tbsj1ga/HudLayoutValheim/main/docs/media/compare.png)
+![The editor: every element framed, a bar dragged and resized](https://raw.githubusercontent.com/tbsj1ga/HudLayoutValheim/main/docs/media/editor.webp)
 
 ## How to use
 
@@ -17,7 +17,6 @@ Press **F7** in the game. Every element gets a frame:
 - **right click** — back to where the game puts it;
 - **F7** or **Esc** — done. The **–** button folds the window out of the way.
 
-![Moving and resizing in the editor](https://raw.githubusercontent.com/tbsj1ga/HudLayoutValheim/main/docs/media/editor.webp)
 
 ## What you can change
 
@@ -30,7 +29,11 @@ Press **F7** in the game. Every element gets a frame:
   and ship panels, key hints, messages — move, resize, fade or hide.
 - **Other mods' HUD** is picked up too — for example ExtraSlots' hotbars.
 
-![Bar styles: numbers, cells, fixed length, colours](https://raw.githubusercontent.com/tbsj1ga/HudLayoutValheim/main/docs/media/bars.png)
+![Changing a bar's look: style, numbers, cells, colour](https://raw.githubusercontent.com/tbsj1ga/HudLayoutValheim/main/docs/media/styles.webp)
+
+![Numbers and colours on a bar](https://raw.githubusercontent.com/tbsj1ga/HudLayoutValheim/main/docs/media/bars.png)
+
+![Everything the editor can move, including other mods' elements](https://raw.githubusercontent.com/tbsj1ga/HudLayoutValheim/main/docs/media/elements.png)
 
 ## Presets
 
@@ -38,7 +41,6 @@ Ready-made layouts — **Vanilla, Centered, Centered minimal, Bottom left, Minim
 Author's choice** — applied in one click, whole or only the layout or only the look. Save
 your own, and share one with a friend as a single line of text.
 
-![Switching presets](https://raw.githubusercontent.com/tbsj1ga/HudLayoutValheim/main/docs/media/presets.webp)
 
 ## Multiplayer
 
