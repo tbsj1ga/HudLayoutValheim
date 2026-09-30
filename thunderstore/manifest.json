@@ -1,8 +1,8 @@
 {
   "name": "HudLayout",
   "version_number": "0.0.0",
-  "website_url": "https://github.com/tbsj1ga/HudLayout",
-  "description": "Move, resize and restyle the health, stamina, eitr and adrenaline bars and the food icons. In-game editor, per-element styles, built-in and your own presets. Client-side only.",
+  "website_url": "https://github.com/tbsj1ga/HudLayoutValheim",
+  "description": "Move, resize and restyle your HUD with the mouse, right in the game: health, stamina, eitr and adrenaline bars, food, hotbar, minimap, even other mods' HUD. Presets included. Client-side.",
   "dependencies": [
     "denikson-BepInExPack_Valheim-5.4.2350"
   ]

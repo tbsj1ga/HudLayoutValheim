@@ -7,8 +7,10 @@ adrenaline bars and the food icons. An in-game editor, a choice of styles for ev
 element, ready-made presets and your own presets. Client-side only: other players and the
 server need nothing.
 
-**Status: 0.12, in use by the author.** Every build is checked against the current game
+**Status: 1.0.0.** Every build is checked against the current game
 assemblies (`check-refs.ps1`). History: [CHANGELOG.md](CHANGELOG.md), plan: [ROADMAP.md](ROADMAP.md).
+
+![Vanilla HUD on the left, the AuthorsChoice preset on the right](docs/media/compare.png)
 
 ## What it does
 
@@ -102,6 +104,12 @@ if (api != null)
 (paths at the top of the script), then checks every reference and Harmony target against the
 current game (`check-refs.ps1`). `-Install` copies it into the profile's plugins, `-Package`
 makes a Thunderstore zip (needs `thunderstore/icon.png`, 256×256).
+
+## Bugs and feedback
+
+GitHub Issues: https://github.com/tbsj1ga/HudLayoutValheim/issues — attach
+`BepInEx/LogOutput.log` and a screenshot; `hudlayout dump` (F5 console) writes the HUD layout
+into that log.
 
 ## License
 

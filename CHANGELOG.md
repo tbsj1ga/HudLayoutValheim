@@ -4,6 +4,18 @@
 
 The version is set in one place — `HudLayoutPlugin.Version` in `src/HudLayoutPlugin.cs`.
 
+## 1.0.0 — first public release
+
+Everything below, from 0.9.0 on, is what this version contains:
+
+- Move, resize and restyle the health, stamina, eitr and adrenaline bars and the food, in an
+  in-game editor (F7) or the config: orientation, length, thickness, fixed length, cells,
+  numbers, colour, visibility (incl. only when not full), opacity.
+- The rest of the vanilla HUD and other mods' HUD elements (e.g. ExtraSlots' hotbars) are
+  movable too; `HudLayoutApi` lets other mods register theirs.
+- Styles per element, built-in presets (incl. AuthorsChoice), your own presets, sharing
+  through the clipboard. English and Russian.
+
 ## 0.12.2
 
 - Editor: the window title is white; the language (as the game / English / Russian) can be
