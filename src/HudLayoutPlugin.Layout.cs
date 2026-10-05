@@ -29,6 +29,8 @@ namespace HudLayout
         // up by path, as ExtraSlots does with HotKeyBar) and our transform is composed onto its
         // own pose. A pose written by anyone else becomes the new base.
         public bool Direct;
+        public bool OwnGroup;               // the CanvasGroup is ours (wrapper, or added by us); else its owner's
+        public float BaseAlpha = 1f, WrittenAlpha = -1f;
         public Vector3 BaseLp, BaseScale = Vector3.one;
         public Quaternion BaseRot = Quaternion.identity;
         public Vector3 WrittenLp, WrittenScale;
@@ -191,6 +193,7 @@ namespace HudLayout
             e.Settings = Get(id);
             e.Wrapper = MakeWrapper("HudLayout_" + name, siblingIndex);
             e.Group = e.Wrapper.gameObject.AddComponent<CanvasGroup>();
+            e.OwnGroup = true;
             return e;
         }
 
@@ -512,10 +515,8 @@ namespace HudLayout
                 }
             }
             if (_editing) { alpha = Mathf.Max(alpha, 0.35f); fade = false; }   // hidden ones can still be found and moved
-            if (fade) alpha = Mathf.MoveTowards(e.Group.alpha, alpha, Time.deltaTime * 6f);   // a quick fade, not a blink
-            if (e.Group.alpha != alpha) e.Group.alpha = alpha;
-            bool blocks = alpha > 0f;
-            if (e.Group.blocksRaycasts != blocks) e.Group.blocksRaycasts = blocks;
+            if (fade && e.Group != null) alpha = Mathf.MoveTowards(e.Group.alpha, alpha, Time.deltaTime * 6f);   // a quick fade, not a blink
+            ApplyAlpha(e, alpha);
 
             if (e.Anim != null && on && e.Anim.isActiveAndEnabled && (_editing || show))
                 e.Anim.SetBool(VisibleHash, true);
@@ -533,6 +534,32 @@ namespace HudLayout
 
             // --- place
             ApplyTransform(e, on);
+        }
+
+        // Opacity. On a CanvasGroup of ours it is simply set. On one the element's owner has
+        // (another mod's panel that fades itself) ours multiplies theirs, and what they write is
+        // their new value — the same rule as the pose, so the two never feed into each other.
+        // Moved-in-place elements get a group of ours only once they need one: one added to the
+        // vanilla hotbar would be copied into every hotbar ExtraSlots clones from it.
+        private static void ApplyAlpha(HudElement e, float alpha)
+        {
+            if (e.Group == null)
+            {
+                if (alpha == 1f || e.Target == null) return;
+                e.Group = e.Target.gameObject.AddComponent<CanvasGroup>();
+                e.OwnGroup = true;
+            }
+            if (e.OwnGroup)
+            {
+                if (e.Group.alpha != alpha) e.Group.alpha = alpha;
+                bool blocks = alpha > 0f;
+                if (e.Group.blocksRaycasts != blocks) e.Group.blocksRaycasts = blocks;
+                return;
+            }
+            if (e.WrittenAlpha < 0f || Mathf.Abs(e.Group.alpha - e.WrittenAlpha) > 0.0001f) e.BaseAlpha = e.Group.alpha;
+            float a = e.BaseAlpha * alpha;
+            if (e.Group.alpha != a) e.Group.alpha = a;
+            e.WrittenAlpha = e.Group.alpha;
         }
 
         // Whether the bar has anything to show (no eitr before the first eitr food, no
@@ -668,11 +695,20 @@ namespace HudLayout
             if (e.Direct)
             {
                 if (e.Target == null) return;
-                // someone else set the pose (or it is the first frame): that is the new base
+                // What someone else set since our last write is the new base — each part on its
+                // own. Taking the whole pose whenever any part changed fed our own scale back in
+                // as the base whenever another mod moved the object (a mod that places the
+                // hotbar every frame): the scale multiplied by itself frame after frame.
                 Transform tt = e.Target;
-                if (!e.HasWritten || tt.localPosition != e.WrittenLp || tt.localScale != e.WrittenScale || tt.localRotation != e.WrittenRot)
+                if (!e.HasWritten)
                 {
                     e.BaseLp = tt.localPosition; e.BaseScale = tt.localScale; e.BaseRot = tt.localRotation;
+                }
+                else
+                {
+                    if (tt.localPosition != e.WrittenLp) e.BaseLp = tt.localPosition;
+                    if (tt.localScale != e.WrittenScale) e.BaseScale = tt.localScale;
+                    if (tt.localRotation != e.WrittenRot) e.BaseRot = tt.localRotation;
                 }
             }
 

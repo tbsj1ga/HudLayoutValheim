@@ -176,13 +176,14 @@ namespace HudLayout
             if (direct)
             {
                 e.Direct = true;
-                e.Group = target.GetComponent<CanvasGroup>();
-                if (e.Group == null) e.Group = target.gameObject.AddComponent<CanvasGroup>();
+                e.Group = target.GetComponent<CanvasGroup>();   // its owner's, if any; ours is added when needed
+                e.OwnGroup = false;
             }
             else
             {
                 e.Wrapper = MakeWrapper("HudLayout_" + s.Key, parent, target.GetSiblingIndex());
                 e.Group = e.Wrapper.gameObject.AddComponent<CanvasGroup>();
+                e.OwnGroup = true;
                 target.SetParent(e.Wrapper, false);
             }
             e.Target = target;
@@ -300,7 +301,7 @@ namespace HudLayout
                 e.Wrapper.localRotation = Quaternion.identity;
                 e.Wrapper.localScale = Vector3.one;
             }
-            if (e.Group != null) e.Group.alpha = 1f;
+            if (e.Group != null) e.Group.alpha = e.OwnGroup ? 1f : e.BaseAlpha;
             _hudElements.Remove(e);
         }
 

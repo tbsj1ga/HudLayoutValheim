@@ -4,6 +4,18 @@
 
 The version is set in one place — `HudLayoutPlugin.Version` in `src/HudLayoutPlugin.cs`.
 
+## 1.0.2
+
+- **Fixed: the hotbar's scale ran away** (jumped between huge and tiny, and neither a reset
+  nor another preset brought it back) when another mod also places the hotbar
+  ([#1](https://github.com/tbsj1ga/HudLayoutValheim/issues/1)). The hotbar and other mods'
+  elements are moved in place, on top of their own position, scale and turn; when anything
+  of that changed under us, the whole of it was taken as the new base — our own scale
+  included, so it multiplied by itself every frame. Each part is now followed on its own.
+- The same for opacity: on another mod's element that fades itself, our opacity now
+  multiplies theirs instead of overwriting it every frame. The vanilla hotbar gets no extra
+  component unless its opacity is changed (ExtraSlots copies the hotbar with whatever is on it).
+
 ## 1.0.1
 
 - A tidier config: options in a sensible order in ConfigurationManager (look, place, size,
