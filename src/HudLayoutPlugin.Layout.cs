@@ -706,9 +706,14 @@ namespace HudLayout
                 }
                 else
                 {
-                    if (tt.localPosition != e.WrittenLp) e.BaseLp = tt.localPosition;
-                    if (tt.localScale != e.WrittenScale) e.BaseScale = tt.localScale;
-                    if (tt.localRotation != e.WrittenRot) e.BaseRot = tt.localRotation;
+                    // Only a real change counts. Unity rebuilds a RectTransform's localPosition
+                    // from its anchoredPosition whenever the UI updates, with the last bit of a
+                    // float different (a few 1e-5 at hundreds of units) — more than Vector3's own
+                    // equality tolerance of 1e-5. Taken as someone else's move, that rounding made
+                    // our written pose the base, frame after frame: the hotbar's scale ran away.
+                    if ((tt.localPosition - e.WrittenLp).sqrMagnitude > PosTolerance * PosTolerance) e.BaseLp = tt.localPosition;
+                    if ((tt.localScale - e.WrittenScale).sqrMagnitude > ScaleTolerance * ScaleTolerance) e.BaseScale = tt.localScale;
+                    if (Quaternion.Angle(tt.localRotation, e.WrittenRot) > AngleTolerance) e.BaseRot = tt.localRotation;
                 }
             }
 
@@ -822,6 +827,12 @@ namespace HudLayout
         }
 
         private readonly Vector3[] _corners = new Vector3[4];
+
+        // How far a moved-in-place element's pose must be from what we wrote to count as
+        // someone else's change: well above float rounding, well below any real move.
+        private const float PosTolerance = 0.05f;     // UI units (about pixels)
+        private const float ScaleTolerance = 0.0005f;
+        private const float AngleTolerance = 0.05f;   // degrees
 
         private void AddCorners(HudElement e, RectTransform rt, ref Vector2 min, ref Vector2 max)
         {
