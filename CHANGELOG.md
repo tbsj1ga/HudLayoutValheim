@@ -6,36 +6,17 @@ The version is set in one place — `HudLayoutPlugin.Version` in `src/HudLayoutP
 
 ## 1.0.3
 
-- Editor window: the title stays white under the mouse too; in Russian the content no longer
-  sticks out past the window's right edge (the choice grids sized themselves by their longest
-  label on one line — now every cell has a fixed share of the width and long labels wrap).
-- The hotbar's "game's place" no longer drifts: elements moved in place are now followed by
-  their anchoredPosition, which only changes when someone really moves them, not by the
-  localPosition Unity recomputes whenever the screen-sized parent changes size (at every
-  world load). That jump was taken for someone else's move and put our offset into the base.
-- `hudlayout dump` also logs, for each element moved in place, its base, what HudLayout
-  wrote and what is there now.
-- **"Game's place" puts an element back where the game has it, also when resized.** At the
-  game's place a hotbar, minimap or any other simple element is now scaled about the point
-  the game pins it by (the hotbar's top left corner, the minimap's top right...), not about
-  the middle of its frame, which slid it out of its corner.
-- Dragging an element away from the game's place no longer makes it jump on the first move;
-  resizing by a corner handle stays smooth when the element is pinned by that corner.
+- **Fixed:** "Game's place" now puts a resized hotbar back exactly where the game has it.
+- **Fixed:** an element dragged away from the game's place no longer jumps on the first move.
+- Editor window: the title stays white under the mouse; in Russian everything fits inside
+  the window.
 
 ## 1.0.2
 
-- **Fixed: the hotbar's scale ran away** — it jumped between huge and tiny, and neither a
-  reset nor another preset brought it back
-  ([#1](https://github.com/tbsj1ga/HudLayoutValheim/issues/1)). The hotbar and other mods'
-  elements are moved in place, on top of their own position, scale and turn; whatever
-  differs from what HudLayout wrote is taken as someone else's change and becomes the new
-  base. Unity rebuilds a UI object's position from its anchors with the last bit of a float
-  different, and that counted as a change — so our own pose, scale included, became the base
-  and multiplied by itself every frame. Now only a real change counts (beyond rounding), and
-  position, scale and turn are followed each on its own.
-- The same rule for opacity: on another mod's element that fades itself, our opacity now
-  multiplies theirs instead of overwriting it every frame. The vanilla hotbar gets no extra
-  component unless its opacity is changed (ExtraSlots copies the hotbar with whatever is on it).
+- **Fixed:** the hotbar and other mods' bars (e.g. ExtraSlots) didn't keep the size you set —
+  it jumped between huge and tiny, and neither a reset nor a preset helped
+  ([#1](https://github.com/tbsj1ga/HudLayoutValheim/issues/1)).
+- Other mods' HUD elements that fade in and out keep doing so when you change their opacity.
 
 ## 1.0.1
 
