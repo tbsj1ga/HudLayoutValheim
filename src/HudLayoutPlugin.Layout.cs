@@ -31,9 +31,11 @@ namespace HudLayout
         public bool Direct;
         public bool OwnGroup;               // the CanvasGroup is ours (wrapper, or added by us); else its owner's
         public float BaseAlpha = 1f, WrittenAlpha = -1f;
-        public Vector3 BaseLp, BaseScale = Vector3.one;
+        public Vector2 BaseAp;              // its own anchoredPosition: what it is placed by, whatever the parent's size
+        public Vector3 BaseLp, BaseScale = Vector3.one;   // BaseLp: that position in parent space, this frame
         public Quaternion BaseRot = Quaternion.identity;
-        public Vector3 WrittenLp, WrittenScale;
+        public Vector2 WrittenAp;
+        public Vector3 WrittenScale;
         public Quaternion WrittenRot;
         public bool HasWritten;
         public Vector3 MPos;                // our transform: parent-space point = MPos + MRot * (x * MScale)
@@ -697,26 +699,29 @@ namespace HudLayout
             if (e.Direct)
             {
                 if (e.Target == null) return;
-                // What someone else set since our last write is the new base — each part on its
-                // own. Taking the whole pose whenever any part changed fed our own scale back in
-                // as the base whenever another mod moved the object (a mod that places the
-                // hotbar every frame): the scale multiplied by itself frame after frame.
-                Transform tt = e.Target;
+                // What someone else set since our last write is the new base, each part on its own
+                // and only beyond rounding. The position is followed as the anchoredPosition, not
+                // the localPosition: Unity rebuilds the localPosition from the anchors whenever the
+                // parent's size changes — at every world load the HUD is built before the canvas
+                // has the screen's size — and that jump, taken for someone else's move, made our
+                // own written pose the base: the hotbar's scale ran away and its "game's place"
+                // drifted. The anchoredPosition only changes when someone really moves it.
+                RectTransform tt = e.Target;
+                Vector2 ap = tt.anchoredPosition;
                 if (!e.HasWritten)
                 {
-                    e.BaseLp = tt.localPosition; e.BaseScale = tt.localScale; e.BaseRot = tt.localRotation;
+                    e.BaseAp = ap; e.BaseScale = tt.localScale; e.BaseRot = tt.localRotation;
                 }
                 else
                 {
-                    // Only a real change counts. Unity rebuilds a RectTransform's localPosition
-                    // from its anchoredPosition whenever the UI updates, with the last bit of a
-                    // float different (a few 1e-5 at hundreds of units) — more than Vector3's own
-                    // equality tolerance of 1e-5. Taken as someone else's move, that rounding made
-                    // our written pose the base, frame after frame: the hotbar's scale ran away.
-                    if ((tt.localPosition - e.WrittenLp).sqrMagnitude > PosTolerance * PosTolerance) e.BaseLp = tt.localPosition;
+                    if ((ap - e.WrittenAp).sqrMagnitude > PosTolerance * PosTolerance) e.BaseAp = ap;
                     if ((tt.localScale - e.WrittenScale).sqrMagnitude > ScaleTolerance * ScaleTolerance) e.BaseScale = tt.localScale;
                     if (Quaternion.Angle(tt.localRotation, e.WrittenRot) > AngleTolerance) e.BaseRot = tt.localRotation;
                 }
+                // the base position in parent space as of now: localPosition and anchoredPosition
+                // differ by the anchor's point in the parent, the same for any position
+                Vector3 lp0 = tt.localPosition;
+                e.BaseLp = new Vector3(lp0.x - ap.x + e.BaseAp.x, lp0.y - ap.y + e.BaseAp.y, lp0.z);
             }
 
             // An element left where the game puts it, at its size and turn, needs no measuring:
@@ -810,15 +815,16 @@ namespace HudLayout
             e.MPos = pos; e.MRot = rot; e.MScale = scale;
             if (e.Direct)
             {
-                Transform tt = e.Target;
+                RectTransform tt = e.Target;
                 Vector3 lp = pos + rot * (e.BaseLp * scale);
-                lp.z = e.BaseLp.z;
+                // written as an anchoredPosition: the same offset from the base as in parent space
+                Vector2 ap = new Vector2(e.BaseAp.x + lp.x - e.BaseLp.x, e.BaseAp.y + lp.y - e.BaseLp.y);
                 Vector3 ls = new Vector3(e.BaseScale.x * scale, e.BaseScale.y * scale, e.BaseScale.z);
                 Quaternion lr = rot * e.BaseRot;
-                if (tt.localPosition != lp) tt.localPosition = lp;
+                if (tt.anchoredPosition != ap) tt.anchoredPosition = ap;
                 if (tt.localScale != ls) tt.localScale = ls;
                 if (tt.localRotation != lr) tt.localRotation = lr;
-                e.WrittenLp = tt.localPosition; e.WrittenScale = tt.localScale; e.WrittenRot = tt.localRotation;
+                e.WrittenAp = tt.anchoredPosition; e.WrittenScale = tt.localScale; e.WrittenRot = tt.localRotation;
                 e.HasWritten = true;
                 return;
             }
@@ -881,6 +887,17 @@ namespace HudLayout
             if (_root == null) return L("No HUD yet: enter a world first.", "HUD ещё нет: сначала зайдите в мир.");
             System.Text.StringBuilder sb = new System.Text.StringBuilder();
             DumpNode(sb, _root, 0);
+            // the elements moved in place: what they are based on, what we wrote, what is there now
+            foreach (HudElement e in _hudElements)
+            {
+                if (!e.Direct || e.Target == null) continue;
+                sb.Append("in place ").Append(e.Settings.Key)
+                  .Append(": base ap=").Append(e.BaseAp).Append(" scale=").Append(e.BaseScale)
+                  .Append(" | written ap=").Append(e.WrittenAp).Append(" scale=").Append(e.WrittenScale)
+                  .Append(" | now ap=").Append(e.Target.anchoredPosition).Append(" scale=").Append(e.Target.localScale)
+                  .Append(" | settings pos=").Append(F(e.Settings.PosX.Value)).Append(',').Append(F(e.Settings.PosY.Value))
+                  .Append(" scale=").Append(F(e.Settings.Scale.Value)).Append('\n');
+            }
             Logger.LogInfo("HUD hierarchy:\n" + sb);
             return L("HUD hierarchy written to the log.", "Иерархия HUD записана в лог.");
         }

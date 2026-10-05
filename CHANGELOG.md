@@ -6,6 +6,12 @@ The version is set in one place — `HudLayoutPlugin.Version` in `src/HudLayoutP
 
 ## 1.0.3
 
+- The hotbar's "game's place" no longer drifts: elements moved in place are now followed by
+  their anchoredPosition, which only changes when someone really moves them, not by the
+  localPosition Unity recomputes whenever the screen-sized parent changes size (at every
+  world load). That jump was taken for someone else's move and put our offset into the base.
+- `hudlayout dump` also logs, for each element moved in place, its base, what HudLayout
+  wrote and what is there now.
 - **"Game's place" puts an element back where the game has it, also when resized.** At the
   game's place a hotbar, minimap or any other simple element is now scaled about the point
   the game pins it by (the hotbar's top left corner, the minimap's top right...), not about

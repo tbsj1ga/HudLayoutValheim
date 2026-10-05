@@ -291,7 +291,7 @@ namespace HudLayout
         {
             if (e.Direct && e.Target != null && e.HasWritten)
             {
-                e.Target.localPosition = e.BaseLp;
+                e.Target.anchoredPosition = e.BaseAp;
                 e.Target.localScale = e.BaseScale;
                 e.Target.localRotation = e.BaseRot;
             }
