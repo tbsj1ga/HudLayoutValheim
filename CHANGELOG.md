@@ -6,6 +6,9 @@ The version is set in one place — `HudLayoutPlugin.Version` in `src/HudLayoutP
 
 ## 1.0.3
 
+- Editor window: the title stays white under the mouse too; in Russian the content no longer
+  sticks out past the window's right edge (the choice grids sized themselves by their longest
+  label on one line — now every cell has a fixed share of the width and long labels wrap).
 - The hotbar's "game's place" no longer drifts: elements moved in place are now followed by
   their anchoredPosition, which only changes when someone really moves them, not by the
   localPosition Unity recomputes whenever the screen-sized parent changes size (at every

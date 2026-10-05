@@ -407,8 +407,10 @@ namespace HudLayout
             if (_windowStyle == null)
             {
                 _windowStyle = new GUIStyle(GUI.skin.window);
-                _windowStyle.normal.textColor = Color.white;
-                _windowStyle.onNormal.textColor = _windowStyle.normal.textColor;
+                // white in every state: hover, focus and the pressed title kept the skin's colours
+                foreach (GUIStyleState st in new[] { _windowStyle.normal, _windowStyle.onNormal, _windowStyle.hover, _windowStyle.onHover,
+                                                      _windowStyle.focused, _windowStyle.onFocused, _windowStyle.active, _windowStyle.onActive })
+                    st.textColor = Color.white;
                 _windowStyle.fontStyle = FontStyle.Bold;
             }
             _windowStyle.normal.background = _windowBg;
@@ -680,7 +682,7 @@ namespace HudLayout
                 GUILayout.Label(_msg, _headerStyle);
             }
             GUILayout.Space(6f);
-            if (GUILayout.Button(L("Done", "Готово"))) StopEditing();
+            if (GUILayout.Button(L("Done", "Готово"), _gridStyle)) StopEditing();
 
             GUILayout.EndVertical();
             GUILayout.EndScrollView();
@@ -708,8 +710,32 @@ namespace HudLayout
                 names[i] = group == 2 ? L(list[i].Settings.LabelEn, list[i].Settings.LabelRu) : ElementLabel(list[i].Settings);
                 if (list[i].Settings == _sel) sel = i;
             }
-            int n = GUILayout.SelectionGrid(sel, names, group == 2 ? 2 : 3, _gridStyle);
+            int n = Grid(sel, names, group == 2 ? 2 : 3);
             if (n != sel && n >= 0) Select(list[n].Settings);
+        }
+
+        // Width of the window's content (the scroll view's column).
+        private float ContentWidth { get { return _winW - 46f; } }
+
+        // A grid of choices that never gets wider than the window. GUILayout.SelectionGrid sizes
+        // itself as the longest label on one line times the columns, ignoring word wrap — the
+        // Russian labels pushed it past the window's edge. Here every cell has a fixed share of
+        // the width and a long label wraps onto a second line, the cell growing in height.
+        private int Grid(int selected, string[] labels, int columns)
+        {
+            int result = selected;
+            float cell = Mathf.Floor((ContentWidth - columns * 8f) / columns);
+            for (int i = 0; i < labels.Length; i += columns)
+            {
+                GUILayout.BeginHorizontal();
+                for (int j = i; j < i + columns && j < labels.Length; j++)
+                {
+                    bool on = GUILayout.Toggle(j == selected, labels[j], _gridStyle, GUILayout.Width(cell));
+                    if (on && j != selected) result = j;
+                }
+                GUILayout.EndHorizontal();
+            }
+            return result;
         }
 
         private void Header(string text)
@@ -734,7 +760,7 @@ namespace HudLayout
         {
             GUILayout.Label(label, _wrapLabel);
             int cur = Array.IndexOf(values, e.Value);
-            int n = GUILayout.SelectionGrid(cur, labels, columns, _gridStyle);
+            int n = Grid(cur, labels, columns);
             if (n != cur && n >= 0 && n < values.Length) e.Value = values[n];
         }
 
@@ -745,7 +771,7 @@ namespace HudLayout
             GUILayout.Label(s.HasPosition
                 ? "X " + F(s.PosX.Value) + "   Y " + F(s.PosY.Value)
                 : L("Where the game puts it", "Там, где его ставит игра"), _wrapLabel);
-            if (s.HasPosition && GUILayout.Button(L("Game's place", "Место игры"), _smallButton, GUILayout.Width(110f))) ResetPosition(s);
+            if (s.HasPosition && GUILayout.Button(L("Game's place", "Место игры"), _smallButton, GUILayout.Width(Mathf.Floor(ContentWidth * 0.35f)))) ResetPosition(s);
             GUILayout.EndHorizontal();
 
             Slider(L("Scale", "Размер"), s.Scale, 0.25f, 4f);
@@ -769,7 +795,7 @@ namespace HudLayout
                     new[] { BarAnchor.Start, BarAnchor.Center, BarAnchor.End },
                     new[] { L("Start", "Начало"), L("Middle", "Середина"), L("End", "Конец") }, 3);
 
-            if (GUILayout.Button(L("Reset position and size", "Сбросить положение и размер"))) ResetLayout(s);
+            if (GUILayout.Button(L("Reset position and size", "Сбросить положение и размер"), _gridStyle)) ResetLayout(s);
         }
 
         private static readonly string[] Swatches = { "", "#FF3B3B", "#FF8A1F", "#FFD21F", "#5BE35B", "#3FD5E8", "#4A8BFF", "#B86BFF", "#FFFFFF" };
@@ -789,7 +815,7 @@ namespace HudLayout
                     if (styles[i].Name == s.Style.Value) cur = i;
                 }
                 GUILayout.Label(L("Style: ", "Стиль: ") + StyleLabel(s, s.Style.Value));
-                int n = GUILayout.SelectionGrid(cur, labels, 3, _gridStyle);
+                int n = Grid(cur, labels, 3);
                 if (n != cur && n >= 0) ApplyStyle(s, styles[n].Name);
             }
 
@@ -849,7 +875,7 @@ namespace HudLayout
                 GUILayout.EndHorizontal();
                 GUILayout.BeginHorizontal();
                 _colorBuf = GUILayout.TextField(_colorBuf ?? "", GUILayout.Width(110f));
-                if (GUILayout.Button(L("Apply #RRGGBB", "Применить #RRGGBB"), _smallButton))
+                if (GUILayout.Button(L("Apply #RRGGBB", "Применить #RRGGBB"), _smallButton, GUILayout.Width(ContentWidth - 110f - 16f)))
                 {
                     string v = (_colorBuf ?? "").Trim();
                     Color c;
@@ -869,7 +895,7 @@ namespace HudLayout
                 Slider(L("Time size", "Размер времени"), s.TextSize, 0.5f, 3f);
             }
 
-            if (GUILayout.Button(L("Reset look", "Сбросить внешний вид")))
+            if (GUILayout.Button(L("Reset look", "Сбросить внешний вид"), _gridStyle))
             {
                 if (s.Style != null) ApplyStyle(s, "Vanilla");
                 else Batch(delegate { foreach (ConfigEntryBase e in s.StyleEntries) e.BoxedValue = e.DefaultValue; });
@@ -885,10 +911,11 @@ namespace HudLayout
             foreach (Preset p in AllPresets())
             {
                 GUILayout.BeginHorizontal();
-                GUILayout.Label(PresetLabel(p) + (p.BuiltIn ? "" : L("  (mine)", "  (мой)")), _wrapLabel, GUILayout.Width(Mathf.Max(110f, _winW - 300f)));
-                if (GUILayout.Button(L("All", "Всё"), _smallButton)) { ApplyPreset(p, PresetPart.All); Say(L("Applied: ", "Применён: ") + PresetLabel(p)); }
-                if (GUILayout.Button(L("Layout", "Место"), _smallButton)) { ApplyPreset(p, PresetPart.Layout); Say(L("Layout applied: ", "Расположение применено: ") + PresetLabel(p)); }
-                if (GUILayout.Button(L("Look", "Вид"), _smallButton)) { ApplyPreset(p, PresetPart.Style); Say(L("Look applied: ", "Вид применён: ") + PresetLabel(p)); }
+                float nameW = Mathf.Floor(ContentWidth * 0.36f), btnW = Mathf.Floor((ContentWidth - nameW - 52f - 40f) / 3f);
+                GUILayout.Label(PresetLabel(p) + (p.BuiltIn ? "" : L("  (mine)", "  (мой)")), _wrapLabel, GUILayout.Width(nameW));
+                if (GUILayout.Button(L("All", "Всё"), _smallButton, GUILayout.Width(btnW))) { ApplyPreset(p, PresetPart.All); Say(L("Applied: ", "Применён: ") + PresetLabel(p)); }
+                if (GUILayout.Button(L("Layout", "Место"), _smallButton, GUILayout.Width(btnW))) { ApplyPreset(p, PresetPart.Layout); Say(L("Layout applied: ", "Расположение применено: ") + PresetLabel(p)); }
+                if (GUILayout.Button(L("Look", "Вид"), _smallButton, GUILayout.Width(btnW))) { ApplyPreset(p, PresetPart.Style); Say(L("Look applied: ", "Вид применён: ") + PresetLabel(p)); }
                 if (!p.BuiltIn)
                 {
                     bool confirming = _confirmDelete == p.Name && Time.unscaledTime < _confirmUntil;
@@ -908,8 +935,9 @@ namespace HudLayout
 
             GUILayout.Space(4f);
             GUILayout.BeginHorizontal();
-            _saveName = GUILayout.TextField(_saveName ?? "", GUILayout.Width(Mathf.Max(120f, _winW - 250f)));
-            if (GUILayout.Button(L("Save current as", "Сохранить текущее как"), _smallButton))
+            float field = Mathf.Floor(ContentWidth * 0.5f);
+            _saveName = GUILayout.TextField(_saveName ?? "", GUILayout.Width(field));
+            if (GUILayout.Button(L("Save current as", "Сохранить текущее как"), _smallButton, GUILayout.Width(ContentWidth - field - 16f)))
             {
                 Preset p = Capture(_saveName);
                 string err = SaveUserPreset(p);
@@ -919,13 +947,14 @@ namespace HudLayout
             GUILayout.EndHorizontal();
 
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button(L("Copy current to clipboard", "Копировать текущее в буфер"), _smallButton))
+            float half = Mathf.Floor((ContentWidth - 16f) / 2f);
+            if (GUILayout.Button(L("Copy current to clipboard", "Копировать текущее в буфер"), _smallButton, GUILayout.Width(half)))
             {
                 string name = (_saveName ?? "").Trim();
                 GUIUtility.systemCopyBuffer = Export(Capture(name.Length > 0 ? name : "Shared layout"));
                 Say(L("Copied. Send it to a friend; they press Import.", "Скопировано. Отправьте другу — он нажмёт «Импорт»."));
             }
-            if (GUILayout.Button(L("Import from clipboard", "Импорт из буфера"), _smallButton))
+            if (GUILayout.Button(L("Import from clipboard", "Импорт из буфера"), _smallButton, GUILayout.Width(half)))
             {
                 Preset p = Import(GUIUtility.systemCopyBuffer);
                 if (p == null) Say(L("The clipboard holds no preset.", "В буфере нет пресета."));
@@ -946,7 +975,7 @@ namespace HudLayout
             Header(L("Settings", "Настройки"));
             GUILayout.Label(L("Language of this window", "Язык этого окна"), _wrapLabel);
             int li = Mathf.Max(0, Array.IndexOf(Languages, _cfgLanguage.Value));
-            int ln = GUILayout.SelectionGrid(li, new[] { L("As the game", "Как в игре"), "English", "Русский" }, 3, _gridStyle);
+            int ln = Grid(li, new[] { L("As the game", "Как в игре"), "English", "Русский" }, 3);
             if (ln != li) _cfgLanguage.Value = Languages[ln];
             bool snap = GUILayout.Toggle(_snap, L(" Snap to grid", " Привязка к сетке"), _wrapToggle);
             _snap = snap;
