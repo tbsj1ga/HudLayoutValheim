@@ -101,7 +101,9 @@ namespace HudLayout
         public float Mult = 1f;             // pixelsPerUnitMultiplier applied
 
         // measured this frame, in wrapper space (for the editor)
-        public Vector2 BMin, BMax, Pivot;
+        public Vector2 BMin, BMax;
+        public Vector2 Pivot;               // the point it is scaled and turned about now
+        public Vector2 Anchor;              // the point a set position puts in place (= Pivot once one is set)
         public Vector2 Shift;               // the game's build-mode lift, in hudroot space
     }
 
@@ -769,6 +771,14 @@ namespace HudLayout
                     case BarAnchor.End: c[axis] = max[axis]; break;
                 }
             }
+            e.Anchor = c;
+
+            // At the game's place a simple element is scaled about the point the game pins it
+            // by — its own pivot: the hotbar's top left corner, the minimap's top right... —
+            // so a bigger hotbar still starts in the corner. (About the middle of its frame,
+            // as for a set position, it slid out of the corner.)
+            if (s.IsSimple && !s.HasPosition && e.Target != null)
+                c = e.Direct ? (Vector2)e.BaseLp : e.ToLayout(e.Target.position);
             e.Pivot = c;
             return c;
         }

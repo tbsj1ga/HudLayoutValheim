@@ -4,6 +4,15 @@
 
 The version is set in one place — `HudLayoutPlugin.Version` in `src/HudLayoutPlugin.cs`.
 
+## 1.0.3
+
+- **"Game's place" puts an element back where the game has it, also when resized.** At the
+  game's place a hotbar, minimap or any other simple element is now scaled about the point
+  the game pins it by (the hotbar's top left corner, the minimap's top right...), not about
+  the middle of its frame, which slid it out of its corner.
+- Dragging an element away from the game's place no longer makes it jump on the first move;
+  resizing by a corner handle stays smooth when the element is pinned by that corner.
+
 ## 1.0.2
 
 - **Fixed: the hotbar's scale ran away** — it jumped between huge and tiny, and neither a

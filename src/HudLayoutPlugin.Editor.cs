@@ -169,6 +169,13 @@ namespace HudLayout
             return ToScreen(e, e.Pivot);
         }
 
+        // Where the point a set position refers to is on screen now. Moving an element from the
+        // game's place starts from here, so it does not jump when the position gets set.
+        private Vector2 AnchorScreen(HudElement e)
+        {
+            return ToScreen(e, e.Anchor);
+        }
+
         // Screen point -> position as the config stores it (fractions of hudroot), without the
         // game's build-mode lift, which is added back when the position is applied.
         private bool ScreenToPosition(HudElement e, Vector2 screen, out Vector2 pos)
@@ -282,7 +289,7 @@ namespace HudLayout
         {
             ElementSettings s = e.Settings;
             if (s.HasPosition) { pos = new Vector2(s.PosX.Value, s.PosY.Value); return true; }
-            return ScreenToPosition(e, PivotScreen(e), out pos);
+            return ScreenToPosition(e, AnchorScreen(e), out pos);
         }
 
         private void Nudge(HudElement e, Vector2 dir, bool big)
@@ -510,7 +517,9 @@ namespace HudLayout
                                 if (!h.Contains(gui)) continue;
                                 _drag = DragKind.Scale;
                                 _dragStartScale = cur.Settings.Scale.Value;
-                                _dragStartDist = Mathf.Max(4f, Vector2.Distance(GuiToScreen(gui), PivotScreen(cur)));
+                                // measured from the middle of the frame, never from a corner the
+                                // element may be scaled about (the grabbed one would give ~0)
+                                _dragStartDist = Mathf.Max(4f, Vector2.Distance(GuiToScreen(gui), AnchorScreen(cur)));
                                 ev.Use();
                                 return;
                             }
@@ -520,7 +529,7 @@ namespace HudLayout
                         {
                             Select(hit.Settings);
                             _drag = DragKind.Move;
-                            _grab = PivotScreen(hit) - GuiToScreen(gui);
+                            _grab = AnchorScreen(hit) - GuiToScreen(gui);
                             ev.Use();
                         }
                         else GUIUtility.keyboardControl = 0;
@@ -562,7 +571,7 @@ namespace HudLayout
                     }
                     else
                     {
-                        float d = Vector2.Distance(GuiToScreen(gui), PivotScreen(e));
+                        float d = Vector2.Distance(GuiToScreen(gui), AnchorScreen(e));
                         float v = Snapped(_dragStartScale * d / _dragStartDist, 0.25f, 4f, _snap && !ev.control);
                         if (e.Settings.Scale.Value != v) e.Settings.Scale.Value = v;
                     }
