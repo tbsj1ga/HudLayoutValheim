@@ -4,6 +4,12 @@
 
 The version is set in one place — `HudLayoutPlugin.Version` in `src/HudLayoutPlugin.cs`.
 
+## 1.0.4
+
+- Faster: elements that HudLayout wraps are re-measured every fourth frame instead of every
+  frame, and at once when their settings or content change; about half of HudLayout's frame
+  time. The editor and elements moved in place are measured every frame as before.
+
 ## 1.0.3
 
 - **Fixed:** "Game's place" now puts a resized hotbar back exactly where the game has it.

@@ -104,6 +104,11 @@ namespace HudLayout
 
         // measured this frame, in wrapper space (for the editor)
         public Vector2 BMin, BMax;
+        public bool HasMeasure;             // MeasureCached: the last measure, and what it depended on
+        public int MeasuredFrame;
+        public float MeasureSig;
+        public Vector3 MeasureTargetLp;
+        public Vector2 MeasureC;
         public Vector2 Pivot;               // the point it is scaled and turned about now
         public Vector2 Anchor;              // the point a set position puts in place (= Pivot once one is set)
         public Vector2 Shift;               // the game's build-mode lift, in hudroot space
@@ -730,9 +735,42 @@ namespace HudLayout
             // needs the frames, so it always measures.
             bool atRest = !_editing && (!on || (!s.HasPosition && s.Scale.Value == 1f && AngleFor(s) == 0f));
             Vector2 c = Vector2.zero;
-            if (!atRest) c = Measure(e, on);
+            if (!atRest) c = MeasureCached(e, on);
 
             ApplyPose(e, on, c);
+        }
+
+        // Measuring walks every graphic of an element and was most of HudLayout's frame time
+        // (HostProfiler: ~10 of ~17 ms per second). A wrapped element is measured in its
+        // wrapper's own space, where its graphics only move when their content does (a status
+        // effect appears, a bar grows with its maximum); there the result is reused for
+        // MeasureEvery frames, the elements staggered so the work is spread. Measured every
+        // frame as before: in the editor, elements moved in place (their base pose can move
+        // with the game - the build-mode lift), and at once when anything the measure depends
+        // on changes - the settings, the icon, the wrapped object's own place.
+        private const int MeasureEvery = 4;
+        private int _measureSlot;
+
+        private Vector2 MeasureCached(HudElement e, bool on)
+        {
+            if (_editing || e.Direct) return Measure(e, on);
+            ElementSettings s = e.Settings;
+            float sig = (on ? 1f : 2f) + (e.IconHidden ? 3f : 0f) + (s.HasPosition ? 5f : 0f)
+                + (s.Anchor != null ? 7f * (int)s.Anchor.Value : 0f)
+                + (s.Length != null ? 11f * s.Length.Value : 0f) + (s.Thickness != null ? 13f * s.Thickness.Value : 0f)
+                + (s.TextSize != null ? 17f * s.TextSize.Value : 0f) + (s.FixedLength != null && s.FixedLength.Value ? 19f : 0f);
+            Vector3 tlp = e.Target != null ? e.Target.localPosition : Vector3.zero;
+            int frame = Time.frameCount;
+            if (e.HasMeasure && sig == e.MeasureSig && tlp == e.MeasureTargetLp && frame - e.MeasuredFrame < MeasureEvery)
+                return e.MeasureC;
+            Vector2 c = Measure(e, on);
+            if (!e.HasMeasure) e.MeasuredFrame = frame - (_measureSlot++ % MeasureEvery);   // stagger the first one
+            else e.MeasuredFrame = frame;
+            e.HasMeasure = true;
+            e.MeasureSig = sig;
+            e.MeasureTargetLp = tlp;
+            e.MeasureC = c;
+            return c;
         }
 
         // What the element covers, in its layout space (the wrapper's; for Direct the parent's
